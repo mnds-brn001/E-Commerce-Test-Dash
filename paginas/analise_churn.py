@@ -17,6 +17,20 @@ import joblib
 import requests
 from io import BytesIO
 
+def read_results_file(file_path):
+    """
+    Tenta ler o arquivo de resultados com diferentes codificações.
+    Retorna o conteúdo do arquivo ou None se não conseguir ler.
+    """
+    encodings = ['utf-8', 'latin-1', 'iso-8859-1', 'cp1252']
+    for encoding in encodings:
+        try:
+            with open(file_path, 'r', encoding=encoding) as f:
+                return f.read()
+        except UnicodeDecodeError:
+            continue
+    return None
+
 @st.cache_resource
 def load_model():
     """
@@ -115,14 +129,16 @@ def app():
                 st.success("✅ Um modelo de churn já foi treinado. Veja os resultados na aba 'Resultados do Modelo'.")
                 
                 # Extrair informações básicas do arquivo de resultados
-                with open('churn_analysis_results.txt', 'r') as f:
-                    results_text = f.read()
-                    
-                # Procurar taxa de churn
-                churn_rate_line = [line for line in results_text.split('\n') if "Taxa de churn:" in line]
-                if churn_rate_line:
-                    churn_rate = churn_rate_line[0].split(": ")[1]
-                    st.info(f"📊 A taxa de churn atual é de {churn_rate}")
+                results_text = read_results_file('churn_analysis_results.txt')
+                
+                if results_text is None:
+                    st.error("❌ Não foi possível ler o arquivo de resultados. Por favor, treine o modelo novamente.")
+                else:
+                    # Procurar taxa de churn
+                    churn_rate_line = [line for line in results_text.split('\n') if "Taxa de churn:" in line]
+                    if churn_rate_line:
+                        churn_rate = churn_rate_line[0].split(": ")[1]
+                        st.info(f"📊 A taxa de churn atual é de {churn_rate}")
             else:
                 st.warning("⚠️ Nenhum modelo de churn foi treinado ainda. Acesse a aba 'Configurar Análise' para criar um modelo.")
             
