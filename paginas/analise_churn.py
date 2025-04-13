@@ -44,17 +44,65 @@ def load_model():
         model = joblib.load(BytesIO(response.content))
     else:
         # Carrega localmente
-        model = joblib.load('churn_model.pkl')
+        model_path = os.path.join('models', 'churn_model.pkl')
+        if not os.path.exists(model_path):
+            return None
+        model = joblib.load(model_path)
     return model
+
+def load_model_and_results():
+    """Carrega o modelo, scaler e resultados dos arquivos"""
+    try:
+        # Verificar se os arquivos existem
+        if not all(os.path.exists(f'models/{file}') for file in ['churn_model.pkl', 'churn_scaler.pkl', 'churn_feature_columns.pkl', 'churn_analysis_results.txt']):
+            return None, None, None, None
+            
+        # Carregar modelo
+        with open('models/churn_model.pkl', 'rb') as f:
+            model = pickle.load(f)
+            
+        # Carregar scaler
+        with open('models/churn_scaler.pkl', 'rb') as f:
+            scaler = pickle.load(f)
+            
+        # Carregar feature columns
+        with open('models/churn_feature_columns.pkl', 'rb') as f:
+            feature_columns = pickle.load(f)
+            
+        # Carregar resultados
+        with open('models/churn_analysis_results.txt', 'r', encoding='utf-8') as f:
+            results = f.read()
+            
+        return model, scaler, feature_columns, results
+    except Exception as e:
+        print(f"Erro ao carregar arquivos: {str(e)}")
+        return None, None, None, None
 
 def app():
     # Configuração da página
     #st.set_page_config(layout="wide")
     
-    # Título principal com ícone
-    st.title("🔄 Análise de Churn")
+    # Título principal
+    st.title("Análise de Churn")
     
-    # Adicionar abas para diferentes funcionalidades
+    # Verificar se os arquivos necessários existem
+    model_files = {
+        'model': os.path.join('models', 'churn_model.pkl'),
+        'scaler': os.path.join('models', 'churn_scaler.pkl'),
+        'feature_columns': os.path.join('models', 'churn_feature_columns.pkl'),
+        'results': os.path.join('models', 'churn_analysis_results.txt')
+    }
+    
+    missing_files = [name for name, file in model_files.items() if not os.path.exists(file)]
+    
+    if missing_files:
+        st.warning("⚠️ Alguns arquivos necessários não foram encontrados:")
+        for file in missing_files:
+            st.write(f"- {model_files[file]}")
+        st.info("Por favor, acesse a aba 'Configurar Análise' para treinar o modelo.")
+        return
+    
+    # Criar abas para diferentes seções
     tab1, tab2, tab3, tab4 = st.tabs([
         "📊 Visão Geral", 
         "⚙️ Configurar Análise", 
@@ -122,23 +170,26 @@ def app():
             """, unsafe_allow_html=True)
             
             # Verificar se o modelo já foi treinado
-            model_exists = os.path.exists('churn_model.pkl')
-            results_exist = os.path.exists('churn_analysis_results.txt')
+            model_exists = os.path.exists(os.path.join('models', 'churn_model.pkl'))
+            results_exist = os.path.exists(os.path.join('models', 'churn_analysis_results.txt'))
             
             if results_exist:
-                st.success("✅ Um modelo de churn já foi treinado. Veja os resultados na aba 'Resultados do Modelo'.")
-                
-                # Extrair informações básicas do arquivo de resultados
-                results_text = read_results_file('churn_analysis_results.txt')
-                
-                if results_text is None:
-                    st.error("❌ Não foi possível ler o arquivo de resultados. Por favor, treine o modelo novamente.")
-                else:
-                    # Procurar taxa de churn
-                    churn_rate_line = [line for line in results_text.split('\n') if "Taxa de churn:" in line]
-                    if churn_rate_line:
-                        churn_rate = churn_rate_line[0].split(": ")[1]
-                        st.info(f"📊 A taxa de churn atual é de {churn_rate}")
+                try:
+                    st.success("✅ Um modelo de churn já foi treinado. Veja os resultados na aba 'Resultados do Modelo'.")
+                    
+                    # Extrair informações básicas do arquivo de resultados
+                    results_text = read_results_file(os.path.join('models', 'churn_analysis_results.txt'))
+                    
+                    if results_text is None:
+                        st.warning("⚠️ Não foi possível ler o arquivo de resultados. Por favor, treine o modelo novamente.")
+                    else:
+                        # Procurar taxa de churn
+                        churn_rate_line = [line for line in results_text.split('\n') if "Taxa de churn:" in line]
+                        if churn_rate_line:
+                            churn_rate = churn_rate_line[0].split(": ")[1]
+                            st.info(f"📊 A taxa de churn atual é de {churn_rate}")
+                except Exception as e:
+                    st.warning("⚠️ Ocorreu um erro ao ler os resultados. Por favor, treine o modelo novamente.")
             else:
                 st.warning("⚠️ Nenhum modelo de churn foi treinado ainda. Acesse a aba 'Configurar Análise' para criar um modelo.")
             
