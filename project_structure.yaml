@@ -1,0 +1,107 @@
+ecommerce-dashboard:
+  description: "Dashboard de análise de e-commerce desenvolvido em Streamlit"
+  version: "1.0.0"
+  
+  main_files:
+    - app.py: "Arquivo principal da aplicação Streamlit"
+    - JuntandoTabelas.py: "Script para consolidação dos datasets"
+    - requirements.txt: "Dependências do projeto"
+    - README.md: "Documentação do projeto"
+
+  data:
+    raw_datasets:
+      - olist_orders_dataset.csv: "Dataset de pedidos"
+      - olist_customers_dataset.csv: "Dataset de clientes"
+      - olist_order_items_dataset.csv: "Dataset de itens dos pedidos"
+      - olist_order_payments_dataset.csv: "Dataset de pagamentos"
+      - olist_order_reviews_dataset.csv: "Dataset de avaliações"
+      - olist_products_dataset.csv: "Dataset de produtos"
+      - olist_sellers_dataset.csv: "Dataset de vendedores"
+      - olist_geolocation_dataset.csv: "Dataset de geolocalização"
+      - product_category_name_translation.csv: "Traduções de categorias"
+    
+    processed_data:
+      - olist_merged_data.parquet: "Dataset consolidado em formato Parquet"
+      - olist_merged_data.csv: "Dataset consolidado em formato CSV"
+
+  pages:
+    visao_geral.py:
+      description: "Visão geral dos KPIs principais"
+      features:
+        - "Métricas principais de negócio"
+        - "Gráficos de tendência"
+        - "Indicadores de performance"
+    
+    aquisicao_retencao.py:
+      description: "Análise de aquisição e retenção de clientes"
+      features:
+        - "Métricas de CAC e LTV"
+        - "Análise de retenção"
+        - "Funil de conversão"
+    
+    comportamento_cliente.py:
+      description: "Análise do comportamento dos clientes"
+      features:
+        - "Padrões de compra"
+        - "Satisfação do cliente"
+        - "Análise de churn"
+    
+    produtos_categorias.py:
+      description: "Análise de produtos e categorias"
+      features:
+        - "Performance por categoria"
+        - "Análise de preços"
+        - "Métricas de produtos"
+
+  utils:
+    KPIs.py:
+      description: "Cálculos de métricas e indicadores"
+      features:
+        - "Cálculo de KPIs de negócio"
+        - "Métricas de performance"
+        - "Indicadores financeiros"
+    
+    filtros.py:
+      description: "Funções de filtragem de dados"
+      features:
+        - "Filtros por período"
+        - "Filtros por categoria"
+        - "Filtros por região"
+    
+    dashboard.py:
+      description: "Componentes do dashboard"
+      features:
+        - "Layout do dashboard"
+        - "Componentes visuais"
+        - "Configurações de visualização"
+
+  dependencies:
+    python_packages:
+      - streamlit: "Framework para interface web"
+      - pandas: "Manipulação de dados"
+      - plotly: "Visualizações interativas"
+      - xgboost: "Modelo de machine learning"
+      - scikit-learn: "Métricas e avaliação de modelos"
+      - numpy: "Computação numérica"
+      - shap: "Análise de importância de features"
+
+  features:
+    data_processing:
+      - "Consolidação de múltiplos datasets"
+      - "Transformação de dados"
+      - "Cálculo de métricas derivadas"
+    
+    visualization:
+      - "Gráficos interativos"
+      - "Dashboards em tempo real"
+      - "Visualizações personalizadas"
+    
+    analysis:
+      - "Análise preditiva de churn"
+      - "Métricas de negócio"
+      - "Análise de comportamento"
+    
+    interactivity:
+      - "Filtros dinâmicos"
+      - "Seleção de períodos"
+      - "Configurações de visualização" 
