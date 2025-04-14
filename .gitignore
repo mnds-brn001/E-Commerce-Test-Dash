@@ -12,7 +12,6 @@ meuambiente/
 churn_model.pkl
 olist_geolocation_dataset.csv
 olist_merged_data.csv
-olist_merged_data.parquet
 
 # Outros
 .DS_Store

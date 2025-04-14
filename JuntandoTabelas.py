@@ -5,15 +5,15 @@ import streamlit as st
 @st.cache_data  
 def load_and_merge_olist_data():
     # Carregar datasets
-    orders = pd.read_csv("olist_orders_dataset.csv")
-    customers = pd.read_csv("olist_customers_dataset.csv")
-    order_items = pd.read_csv("olist_order_items_dataset.csv")
-    payments = pd.read_csv("olist_order_payments_dataset.csv")
-    reviews = pd.read_csv("olist_order_reviews_dataset.csv")
-    products = pd.read_csv("olist_products_dataset.csv")
-    sellers = pd.read_csv("olist_sellers_dataset.csv")
-    geolocation = pd.read_csv("olist_geolocation_dataset.csv")
-    category_translation = pd.read_csv("product_category_name_translation.csv")
+    orders = pd.read_csv("dados/olist_orders_dataset.csv")
+    customers = pd.read_csv("dados/olist_customers_dataset.csv")
+    order_items = pd.read_csv("dados/olist_order_items_dataset.csv")
+    payments = pd.read_csv("dados/olist_order_payments_dataset.csv")
+    reviews = pd.read_csv("dados/olist_order_reviews_dataset.csv")
+    products = pd.read_csv("dados/olist_products_dataset.csv")
+    sellers = pd.read_csv("dados/olist_sellers_dataset.csv")
+    geolocation = pd.read_csv("dados/olist_geolocation_dataset.csv")
+    category_translation = pd.read_csv("dados/product_category_name_translation.csv")
     
     # Converter coluna de data para datetime
     orders['order_purchase_timestamp'] = pd.to_datetime(orders['order_purchase_timestamp'])

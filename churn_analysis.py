@@ -21,6 +21,7 @@ from imblearn.under_sampling import RandomUnderSampler
 import xgboost as xgb
 import pickle
 import argparse
+import os
 
 # Configurando estilo dos gráficos
 plt.style.use('ggplot')
@@ -485,101 +486,32 @@ def evaluate_model(model, X_test, y_test):
         "feature_importance": feature_importance
     }
 
-def save_model_and_results(model, scaler, metrics, cutoff_date, rebalance_method, model_type, class_weight, feature_columns):
-    """
-    Salva o modelo, scaler e resultados
-    
-    Parâmetros:
-    -----------
-    model : modelo
-        Modelo treinado
-    scaler : StandardScaler
-        Objeto scaler ajustado aos dados
-    metrics : dict
-        Dicionário com métricas e resultados da avaliação
-    cutoff_date : str
-        Data de corte para definição de churn
-    rebalance_method : str
-        Método de rebalanceamento utilizado
-    model_type : str
-        Tipo de modelo utilizado
-    class_weight : str ou None
-        Peso das classes utilizado
-    feature_columns : list
-        Lista com nomes das features
+def save_model_and_results(model, scaler, feature_columns, results):
+    """Salva o modelo, scaler e resultados em arquivos"""
+    try:
+        # Criar diretório se não existir
+        os.makedirs('models', exist_ok=True)
         
-    Retorno:
-    --------
-    None
-    """
-    # Salvar modelo
-    print("Salvando modelo...")
-    with open('churn_model.pkl', 'wb') as f:
-        pickle.dump(model, f)
-    
-    # Salvar scaler
-    with open('churn_scaler.pkl', 'wb') as f:
-        pickle.dump(scaler, f)
-    
-    # Salvar informações das features
-    with open('churn_feature_columns.pkl', 'wb') as f:
-        pickle.dump(feature_columns, f)
-    
-    # Extrair componentes das métricas para salvar
-    confusion_matrix = metrics["confusion_matrix"]
-    feature_importance = metrics["feature_importance"]
-    
-    # Salvar resultados em um arquivo texto
-    with open('churn_analysis_results.txt', 'w') as f:
-        f.write(f"Análise de Churn - Olist\n")
-        f.write(f"Data de execução: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
-        
-        f.write(f"Configurações:\n")
-        f.write(f"Data de corte para análise de churn: {pd.to_datetime(cutoff_date)}\n")
-        f.write(f"Método de rebalanceamento: {rebalance_method}\n")
-        f.write(f"Tipo de modelo: {model_type}\n")
-        f.write(f"Class weight: {class_weight}\n\n")
-        
-        # Distribuição de churn
-        if "churn_count" in metrics:
-            f.write(f"Distribuição de churn:\n")
-            f.write(f"Não-churn (0): {metrics['churn_count'][0]}\n")
-            f.write(f"Churn (1): {metrics['churn_count'][1]}\n")
-            f.write(f"Taxa de churn: {metrics['churn_rate']:.2%}\n\n")
-        
-        # Correlações com churn
-        if "correlations" in metrics:
-            f.write(f"Top correlações com churn:\n")
-            for feature, corr_value in metrics["correlations"].items():
-                f.write(f"{feature}: {corr_value:.4f}\n")
-            f.write("\n")
-        
-        # Métricas de performance
-        f.write(f"Métricas de performance:\n")
-        f.write(f"Accuracy: {metrics['accuracy']:.4f}\n")
-        f.write(f"Precision (weighted): {metrics['precision_weighted']:.4f}\n")
-        f.write(f"Recall (weighted): {metrics['recall_weighted']:.4f}\n")
-        f.write(f"F1 (macro): {metrics['f1_macro']:.4f}\n")
-        f.write(f"F1 (weighted): {metrics['f1_weighted']:.4f}\n")
-        f.write(f"AUC-ROC: {metrics['auc_roc']:.4f}\n")
-        f.write(f"Average Precision Score: {metrics['avg_precision']:.4f}\n\n")
-        
-        # Relatório de classificação
-        f.write(f"Relatório de classificação:\n")
-        f.write(metrics["classification_report"])
-        f.write("\n")
-        
-        # Matriz de confusão
-        f.write(f"Matriz de confusão:\n")
-        f.write(f"{confusion_matrix}\n\n")
-        
-        # Importância das features
-        if "feature_importance" in metrics and metrics["feature_importance"] is not None:
-            f.write(f"\nImportância das features:\n")
-            for _, row in metrics["feature_importance"].iterrows():
-                f.write(f"{row['Original_Feature']} ({row['Feature']}): {row['Importance']:.4f}\n")
-    
-    print("Análise de churn concluída com sucesso!")
+        # Salvar modelo
+        with open('models/churn_model.pkl', 'wb') as f:
+            pickle.dump(model, f)
+            
+        # Salvar scaler
+        with open('models/churn_scaler.pkl', 'wb') as f:
+            pickle.dump(scaler, f)
+            
+        # Salvar feature columns
+        with open('models/churn_feature_columns.pkl', 'wb') as f:
+            pickle.dump(feature_columns, f)
+            
+        # Salvar resultados
+        with open('models/churn_analysis_results.txt', 'w', encoding='utf-8') as f:
+            f.write(results)
+            
+        return True
+    except Exception as e:
+        print(f"Erro ao salvar arquivos: {str(e)}")
+        return False
 
 def plot_results(metrics, save_fig=True):
     """
@@ -695,11 +627,57 @@ def main(cutoff_date='2018-04-17', rebalance_method='smote', model_type='random_
     all_metrics = {**dist_metrics, **eval_metrics}
     
     # 10. Salvar modelo e resultados
+    results = f"Análise de Churn - Olist\n"
+    results += f"Data de execução: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+    
+    results += f"Configurações:\n"
+    results += f"Data de corte para análise de churn: {pd.to_datetime(cutoff_date)}\n"
+    results += f"Método de rebalanceamento: {rebalance_method}\n"
+    results += f"Tipo de modelo: {model_type}\n"
+    results += f"Class weight: {class_weight}\n\n"
+    
+    # Distribuição de churn
+    if "churn_count" in dist_metrics:
+        results += f"Distribuição de churn:\n"
+        results += f"Não-churn (0): {dist_metrics['churn_count'][0]}\n"
+        results += f"Churn (1): {dist_metrics['churn_count'][1]}\n"
+        results += f"Taxa de churn: {dist_metrics['churn_rate']:.2%}\n\n"
+    
+    # Correlações com churn
+    if "correlations" in dist_metrics:
+        results += f"Top correlações com churn:\n"
+        for feature, corr_value in dist_metrics["correlations"].items():
+            results += f"{feature}: {corr_value:.4f}\n"
+        results += "\n"
+    
+    # Métricas de performance
+    results += f"Métricas de performance:\n"
+    results += f"Accuracy: {all_metrics['accuracy']:.4f}\n"
+    results += f"Precision (weighted): {all_metrics['precision_weighted']:.4f}\n"
+    results += f"Recall (weighted): {all_metrics['recall_weighted']:.4f}\n"
+    results += f"F1 (macro): {all_metrics['f1_macro']:.4f}\n"
+    results += f"F1 (weighted): {all_metrics['f1_weighted']:.4f}\n"
+    results += f"AUC-ROC: {all_metrics['auc_roc']:.4f}\n"
+    results += f"Average Precision Score: {all_metrics['avg_precision']:.4f}\n\n"
+    
+    # Relatório de classificação
+    results += f"Relatório de classificação:\n"
+    results += all_metrics["classification_report"]
+    results += "\n"
+    
+    # Matriz de confusão
+    results += f"Matriz de confusão:\n"
+    results += f"{all_metrics['confusion_matrix']}\n\n"
+    
+    # Importância das features
+    if "feature_importance" in all_metrics and all_metrics["feature_importance"] is not None:
+        results += f"\nImportância das features:\n"
+        for _, row in all_metrics["feature_importance"].iterrows():
+            results += f"{row['Original_Feature']} ({row['Feature']}): {row['Importance']:.4f}\n"
+    
     save_model_and_results(
-        model, scaler, all_metrics, 
-        cutoff_date, rebalance_method, 
-        model_type, class_weight,
-        feature_columns
+        model, scaler, feature_columns,
+        results
     )
     
     # 11. Plotar resultados
