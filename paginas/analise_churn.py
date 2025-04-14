@@ -37,18 +37,23 @@ def load_model():
     Carrega o modelo de churn. Se estiver em produção (Streamlit Cloud),
     baixa do storage. Se estiver local, carrega do arquivo.
     """
-    if 'STREAMLIT_SHARING' in os.environ:
-        # URL do seu modelo (pode ser S3, Google Drive, etc)
-        model_url = st.secrets["MODEL_URL"]
-        response = requests.get(model_url)
-        model = joblib.load(BytesIO(response.content))
-    else:
-        # Carrega localmente
-        model_path = os.path.join('models', 'churn_model.pkl')
-        if not os.path.exists(model_path):
-            return None
-        model = joblib.load(model_path)
-    return model
+    try:
+        if 'STREAMLIT_SHARING' in os.environ:
+            # URL do seu modelo (pode ser S3, Google Drive, etc)
+            model_url = st.secrets["MODEL_URL"]
+            response = requests.get(model_url)
+            model = joblib.load(BytesIO(response.content))
+        else:
+            # Carrega localmente
+            model_path = os.path.join('models', 'churn_model.pkl')
+            if not os.path.exists(model_path):
+                st.warning("⚠️ Modelo não encontrado localmente. Por favor, treine o modelo na aba 'Configurar Análise'.")
+                return None
+            model = joblib.load(model_path)
+        return model
+    except Exception as e:
+        st.error(f"Erro ao carregar o modelo: {str(e)}")
+        return None
 
 def load_model_and_results():
     """Carrega o modelo, scaler e resultados dos arquivos"""
@@ -92,7 +97,6 @@ def app():
     
     # Verificar se os arquivos necessários existem
     model_files = {
-        'model': os.path.join('models', 'churn_model.pkl'),
         'scaler': os.path.join('models', 'churn_scaler.pkl'),
         'feature_columns': os.path.join('models', 'churn_feature_columns.pkl'),
         'results': os.path.join('models', 'churn_analysis_results.txt')

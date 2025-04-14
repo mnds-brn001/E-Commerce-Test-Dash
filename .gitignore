@@ -17,3 +17,6 @@ olist_merged_data.csv
 .DS_Store
 *.log
 
+# Model files
+models/churn_model.pkl
+
