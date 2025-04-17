@@ -296,16 +296,33 @@ elif pagina == "Análise Estratégica":
     kpis = calculate_kpis(filtered_df, marketing_spend, date_range)
     
     # ===== SEÇÃO 1: VISÃO GERAL E KPIs PRINCIPAIS =====
-    # Layout dos KPIs
-    col1, col2, col3 = st.columns(3)
+    # Preparar dicionário de KPIs principais
+    main_kpis = {
+        "💰 Receita Total": f"R$ {format_value(kpis['total_revenue'])}",
+        "📈 Ticket Médio": f"R$ {format_value(kpis['average_ticket'])}",
+        "👥 Total de Clientes": format_value(kpis['total_customers'], is_integer=True)
+    }
     
-    # Primeira linha de KPIs - Métricas de Receita
-    col1.metric("💰 Receita Total", f"R$ {format_value(kpis['total_revenue'])}")
-    col2.metric("📈 Ticket Médio", f"R$ {format_value(kpis['average_ticket'])}")
-    col3.metric("👥 Total de Clientes", format_value(kpis['total_customers'], is_integer=True))
+    # Renderizar bloco de KPIs principais com efeito glass
+    render_kpi_block("📊 Métricas Principais", main_kpis, cols_per_row=3)
     
     # ===== SEÇÃO 2: PREVISÃO DE RECEITA =====
     st.header("🔮 Previsão de Receita")
+    
+    # Preparar dados para análise
+    filtered_df['month'] = pd.to_datetime(filtered_df['order_purchase_timestamp']).dt.to_period('M')
+    monthly_category_sales = filtered_df.groupby(['month', 'product_category_name']).agg({
+        'price': 'sum',
+        'order_id': 'count',
+        'pedido_cancelado': 'mean'
+    }).reset_index()
+    monthly_category_sales['month'] = monthly_category_sales['month'].astype(str)
+    
+    # Identificar as 5 categorias com maior volume de vendas
+    top_categories = filtered_df.groupby('product_category_name')['order_id'].count().sort_values(ascending=False).head(5).index.tolist()
+    
+    # Filtrar apenas as categorias principais
+    top_category_sales = monthly_category_sales[monthly_category_sales['product_category_name'].isin(top_categories)]
     
     # Calcular média diária de receita
     filtered_df['date'] = pd.to_datetime(filtered_df['order_purchase_timestamp']).dt.date
@@ -356,6 +373,22 @@ elif pagina == "Análise Estratégica":
     forecast_df['lower_bound'] = forecast_df['forecast'] - (1.96 * std_dev)
     forecast_df['upper_bound'] = forecast_df['forecast'] + (1.96 * std_dev)
     
+    # Calcular métricas de previsão
+    total_forecast = forecast_df['forecast'].sum()
+    previous_30_days = daily_revenue.tail(30)['price'].sum()
+    growth_percentage = (total_forecast - previous_30_days) / previous_30_days * 100 if previous_30_days > 0 else 0
+    max_day = forecast_df.loc[forecast_df['forecast'].idxmax()]
+    
+    # Preparar dicionário de KPIs de previsão
+    forecast_kpis = {
+        "💰 Receita Total Prevista (30 dias)": f"R$ {format_value(total_forecast)}",
+        "📈 Crescimento Previsto": f"{format_value(growth_percentage)}%",
+        "📅 Dia com Maior Receita Prevista": f"{max_day['date'].strftime('%d/%m/%Y')} ({max_day['day_of_week']})"
+    }
+    
+    # Renderizar bloco de KPIs de previsão com efeito glass
+    render_kpi_block("📊 Métricas de Previsão", forecast_kpis, cols_per_row=3)
+    
     # Criar gráfico de previsão
     fig_forecast = go.Figure()
     
@@ -363,24 +396,33 @@ elif pagina == "Análise Estratégica":
     fig_forecast.add_trace(go.Scatter(
         x=daily_revenue['date'],
         y=daily_revenue['price'],
-        name='Receita Real',
-        line=dict(color='#1f77b4')
-    ))
-    
-    # Adicionar média móvel
-    fig_forecast.add_trace(go.Scatter(
-        x=daily_revenue['date'],
-        y=daily_revenue['ma7'],
-        name='Média Móvel (7 dias)',
-        line=dict(color='#ff7f0e', dash='dash')
+        name='Receita Histórica',
+        line=dict(
+            width=2,
+            color='#1f77b4'
+        ),
+        mode='lines+markers',
+        marker=dict(
+            size=6,
+            symbol='circle'
+        )
     ))
     
     # Adicionar previsão
     fig_forecast.add_trace(go.Scatter(
         x=forecast_df['date'],
         y=forecast_df['forecast'],
-        name='Previsão (30 dias)',
-        line=dict(color='#2ca02c', dash='dot')
+        name='Previsão',
+        line=dict(
+            width=2,
+            color='#ff7f0e',
+            dash='dash'
+        ),
+        mode='lines+markers',
+        marker=dict(
+            size=6,
+            symbol='diamond'
+        )
     ))
     
     # Adicionar intervalo de confiança
@@ -388,21 +430,13 @@ elif pagina == "Análise Estratégica":
         x=forecast_df['date'].tolist() + forecast_df['date'].tolist()[::-1],
         y=forecast_df['upper_bound'].tolist() + forecast_df['lower_bound'].tolist()[::-1],
         fill='toself',
-        fillcolor='rgba(44, 160, 44, 0.2)',
-        line=dict(color='rgba(44, 160, 44, 0)'),
-        name='Intervalo de Confiança (95%)',
-        showlegend=True,
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1
-        )
+        fillcolor='rgba(255, 127, 14, 0.2)',
+        line=dict(color='rgba(255, 127, 14, 0)'),
+        name='Intervalo de Confiança'
     ))
     
     fig_forecast.update_layout(
-        title="Previsão de Receita para os Próximos 30 Dias",
+        title="",
         xaxis_title="Data",
         yaxis_title="Receita (R$)",
         showlegend=True,
@@ -411,27 +445,20 @@ elif pagina == "Análise Estratégica":
             yanchor="bottom",
             y=1.02,
             xanchor="right",
-            x=1
+            x=1,
+            font=dict(size=12)
+        ),
+        hovermode='x unified',
+        hoverlabel=dict(
+            bgcolor="white",
+            font_size=12,
+            font_family="Rockwell"
         )
     )
     fig_forecast.update_layout(dragmode=False, hovermode=False)
-    st.plotly_chart(fig_forecast, use_container_width=True)
     
-    # Adicionar métricas de previsão
-    col1_metrics, col2_metrics, col3_metrics = st.columns(3)
-    
-    # Calcular receita total prevista para os próximos 30 dias
-    total_forecast = forecast_df['forecast'].sum()
-    col1_metrics.metric("💰 Receita Total Prevista (30 dias)", f"R$ {format_value(total_forecast)}")
-    
-    # Calcular crescimento previsto em relação ao período anterior
-    previous_30_days = daily_revenue.tail(30)['price'].sum()
-    growth_percentage = (total_forecast - previous_30_days) / previous_30_days * 100 if previous_30_days > 0 else 0
-    col2_metrics.metric("📈 Crescimento Previsto", f"{format_value(growth_percentage)}%")
-    
-    # Calcular dia com maior receita prevista
-    max_day = forecast_df.loc[forecast_df['forecast'].idxmax()]
-    col3_metrics.metric("📅 Dia com Maior Receita Prevista", f"{max_day['date'].strftime('%d/%m/%Y')} ({max_day['day_of_week']})")
+    # Renderizar gráfico com efeito glass
+    render_plotly_glass_card("🔮 Evolução e Previsão de Receita", fig_forecast)
     
     # ===== SEÇÃO 3: SAZONALIDADE E PADRÕES DE VENDA =====
     st.header("📅 Sazonalidade e Padrões de Venda")
@@ -501,7 +528,9 @@ elif pagina == "Análise Estratégica":
             showlegend=False
         )
         fig_seasonality.update_layout(dragmode=False, hovermode=False)
-        st.plotly_chart(fig_seasonality, use_container_width=True)
+        
+        # Renderizar gráfico com efeito glass
+        render_plotly_glass_card("📅 Sazonalidade de Vendas", fig_seasonality)
         
         # Identificar o dia da semana com maior receita
         best_day = day_revenue.idxmax()
@@ -541,7 +570,9 @@ elif pagina == "Análise Estratégica":
             showlegend=False
         )
         fig_ticket.update_layout(dragmode=False, hovermode=False)
-        st.plotly_chart(fig_ticket, use_container_width=True)
+        
+        # Renderizar gráfico com efeito glass
+        render_plotly_glass_card("💵 Ticket Médio por Estado", fig_ticket)
         
         # Identificar o estado com maior ticket médio
         best_state = state_ticket.idxmax()
@@ -611,7 +642,9 @@ elif pagina == "Análise Estratégica":
             xaxis_tickangle=45
         )
         fig_profit.update_layout(dragmode=False, hovermode=False)
-        st.plotly_chart(fig_profit, use_container_width=True)
+        
+        # Renderizar gráfico com efeito glass
+        render_plotly_glass_card("📈 Top 10 Categorias por Rentabilidade", fig_profit)
     
     with col2:
         # Taxa de Crescimento por Categoria
@@ -646,10 +679,15 @@ elif pagina == "Análise Estratégica":
             showlegend=False
         )
         fig_growth.update_layout(dragmode=False, hovermode=False)
-        st.plotly_chart(fig_growth, use_container_width=True)
+        
+        # Renderizar gráfico com efeito glass
+        render_plotly_glass_card("📊 Taxa de Crescimento por Categoria", fig_growth)
     
     # ===== SEÇÃO 5: PREVISÃO DE DEMANDA POR CATEGORIA =====
     st.header("📈 Previsão de Demanda por Categoria")
+    
+    # Identificar as 5 categorias com maior volume de vendas
+    top_categories = filtered_df.groupby('product_category_name')['order_id'].count().sort_values(ascending=False).head(5).index.tolist()
     
     # Criar DataFrame para previsão
     last_month = pd.to_datetime(monthly_category_sales['month'].iloc[-1])
@@ -686,36 +724,96 @@ elif pagina == "Análise Estratégica":
     # Criar gráfico de previsão
     fig_forecast = go.Figure()
     
+    # Definir paleta de cores para as categorias
+    category_colors = {
+        'historical': [
+            '#1f77b4',  # Azul
+            '#ff7f0e',  # Laranja
+            '#2ca02c',  # Verde
+            '#d62728',  # Vermelho
+            '#9467bd',  # Roxo
+            '#8c564b',  # Marrom
+            '#e377c2',  # Rosa
+            '#7f7f7f',  # Cinza
+            '#bcbd22',  # Verde-amarelo
+            '#17becf'   # Ciano
+        ],
+        'forecast': [
+            '#1f77b4',  # Azul (mais claro)
+            '#ff7f0e',  # Laranja (mais claro)
+            '#2ca02c',  # Verde (mais claro)
+            '#d62728',  # Vermelho (mais claro)
+            '#9467bd',  # Roxo (mais claro)
+            '#8c564b',  # Marrom (mais claro)
+            '#e377c2',  # Rosa (mais claro)
+            '#7f7f7f',  # Cinza (mais claro)
+            '#bcbd22',  # Verde-amarelo (mais claro)
+            '#17becf'   # Ciano (mais claro)
+        ]
+    }
+    
     # Adicionar dados históricos
-    for category in top_categories:
+    for i, category in enumerate(top_categories):
         category_data = top_category_sales[top_category_sales['product_category_name'] == category]
         fig_forecast.add_trace(go.Scatter(
             x=category_data['month'],
             y=category_data['order_id'],
             name=f'{category} (Histórico)',
-            line=dict(width=2)
+            line=dict(
+                width=2,
+                color=category_colors['historical'][i % len(category_colors['historical'])]
+            ),
+            mode='lines+markers',
+            marker=dict(
+                size=6,
+                symbol='circle'
+            )
         ))
     
     # Adicionar previsão
-    for category in top_categories:
+    for i, category in enumerate(top_categories):
         category_forecast = forecast_df[forecast_df['product_category_name'] == category]
         if not category_forecast.empty:
             fig_forecast.add_trace(go.Scatter(
                 x=category_forecast['month'],
                 y=category_forecast['forecast'],
                 name=f'{category} (Previsão)',
-                line=dict(dash='dash', width=2)
+                line=dict(
+                    width=2,
+                    color=category_colors['forecast'][i % len(category_colors['forecast'])],
+                    dash='dash'
+                ),
+                mode='lines+markers',
+                marker=dict(
+                    size=6,
+                    symbol='diamond'
+                )
             ))
     
     fig_forecast.update_layout(
-        title="Previsão de Demanda para os Próximos 3 Meses",
+        title="",
         xaxis_title="Mês",
         yaxis_title="Quantidade de Pedidos",
         showlegend=True,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1,
+            font=dict(size=12)
+        ),
+        hovermode='x unified',
+        hoverlabel=dict(
+            bgcolor="white",
+            font_size=12,
+            font_family="Rockwell"
+        )
     )
     fig_forecast.update_layout(dragmode=False, hovermode=False)
-    st.plotly_chart(fig_forecast, use_container_width=True)
+    
+    # Renderizar gráfico com efeito glass
+    render_plotly_glass_card("📈 Previsão de Demanda por Categoria", fig_forecast)
     
     # ===== SEÇÃO 6: RECOMENDAÇÕES E INSIGHTS =====
     st.header("💡 Recomendações e Insights")
@@ -1021,7 +1119,7 @@ elif pagina == "Aquisição e Retenção":
         
         # Layout para Status e Análise de Tendência
         col1, col2 = st.columns(2)
-
+        
         with col1:
             # Status Card
             st.markdown(f"""
@@ -1079,7 +1177,7 @@ elif pagina == "Aquisição e Retenção":
                 rec_color = "#2ecc71"  # Verde para situação saudável
                 rec_icon = "✅"
                 rec_status = "Situação Saudável"
-
+            
             # Generate recommendations HTML as a separate string
             recs_html = ""
             for title, desc in recommendations:
@@ -1089,7 +1187,7 @@ elif pagina == "Aquisição e Retenção":
                     f"<span style='color: {text_color};'>{desc}</span>"
                     f"</li>"
                 )
-
+            
             # Build the recommendations block with minimal f-string interpolation
             recommendations_block = (
                 "<div style='"
@@ -1119,7 +1217,7 @@ elif pagina == "Aquisição e Retenção":
             )
             
             st.markdown(recommendations_block, unsafe_allow_html=True)
-
+        
         with col2:
             # Passo 1: Criar a tabela do guia como string separada
             guide_table = """
@@ -1143,7 +1241,7 @@ elif pagina == "Aquisição e Retenção":
                 </table>
             </div>
             """
-
+            
             # Passo 2: Montar o bloco de tendência como string segura
             trend_card = f"""
             <div style="
@@ -1175,10 +1273,9 @@ elif pagina == "Aquisição e Retenção":
                 {guide_table}
             </div>
             """
-
+            
             # Passo 3: Renderizar no Streamlit
             st.markdown(trend_card, unsafe_allow_html=True)
-
     else:
         st.warning("⚠️ Período insuficiente para análise de tendência (mínimo 2 meses)")
     
@@ -1328,22 +1425,25 @@ elif pagina == "Comportamento do Cliente":
     acquisition_kpis = calculate_acquisition_retention_kpis(filtered_df, marketing_spend, date_range)
     
     # ===== SEÇÃO 1: VISÃO GERAL =====
-    # Layout dos KPIs em duas seções
-    st.subheader("👥 Métricas de Cliente")
-    col1, col2, col3 = st.columns(3)
+    # Preparar dicionário de KPIs de Cliente
+    customer_kpis = {
+        "🎯 Taxa de Abandono": format_percentage(kpis['abandonment_rate']),
+        "😊 Satisfação do Cliente": format_value(kpis['csat']),
+        "🔄 Taxa de Recompra": format_percentage(acquisition_kpis['repurchase_rate'])
+    }
     
-    # Primeira linha de KPIs - Métricas de Cliente
-    col1.metric("🎯 Taxa de Abandono", format_percentage(kpis['abandonment_rate']))
-    col2.metric("😊 Satisfação do Cliente", format_value(kpis['csat']))
-    col3.metric("🔄 Taxa de Recompra", format_percentage(acquisition_kpis['repurchase_rate']))
+    # Renderizar bloco de KPIs de Cliente com efeito glass
+    render_kpi_block("👥 Métricas de Cliente", customer_kpis, cols_per_row=3)
     
-    st.subheader("⏱️ Métricas de Tempo")
-    col1, col2, col3 = st.columns(3)
+    # Preparar dicionário de KPIs de Tempo
+    time_kpis = {
+        "📦 Tempo Médio de Entrega": f"{int(kpis['avg_delivery_time'])} dias",
+        "⏳ Tempo até 2ª Compra": f"{int(acquisition_kpis['avg_time_to_second'])} dias",
+        "💰 Ticket Médio": f"R$ {format_value(kpis['average_ticket'])}"
+    }
     
-    # Segunda linha de KPIs - Métricas de Tempo
-    col1.metric("📦 Tempo Médio de Entrega", f"{int(kpis['avg_delivery_time'])} dias")
-    col2.metric("⏳ Tempo até 2ª Compra", f"{int(acquisition_kpis['avg_time_to_second'])} dias")
-    col3.metric("💰 Ticket Médio", f"R$ {format_value(kpis['average_ticket'])}")
+    # Renderizar bloco de KPIs de Tempo com efeito glass
+    render_kpi_block("⏱️ Métricas de Tempo", time_kpis, cols_per_row=3)
     
     st.markdown("---")
     
@@ -1354,22 +1454,22 @@ elif pagina == "Comportamento do Cliente":
     
     with col1:
         # Gráfico de Satisfação do Cliente ao Longo do Tempo
-        st.subheader("📈 Evolução da Satisfação")
         satisfaction_data = filtered_df.groupby(filtered_df['order_purchase_timestamp'].dt.to_period('M'))['review_score'].mean().reset_index()
         satisfaction_data['order_purchase_timestamp'] = satisfaction_data['order_purchase_timestamp'].astype(str)
         fig_satisfaction = px.line(
             satisfaction_data,
             x='order_purchase_timestamp',
             y='review_score',
-            title="Evolução da Satisfação",
+            title=" ",
             labels={'review_score': 'Nota Média', 'order_purchase_timestamp': 'Mês'}
         )
         fig_satisfaction.update_layout(
             yaxis=dict(range=[0, 5]),
             showlegend=False
         )
-        fig_satisfaction.update_layout(dragmode=False, hovermode=False)
-        st.plotly_chart(fig_satisfaction, use_container_width=True)
+        
+        # Renderizar gráfico com efeito glass
+        render_plotly_glass_card("📈 Evolução da Satisfação", fig_satisfaction)
         
         # Insights sobre satisfação
         avg_satisfaction = filtered_df['review_score'].mean()
@@ -1391,19 +1491,19 @@ elif pagina == "Comportamento do Cliente":
     
     with col2:
         # Gráfico de Distribuição de Satisfação
-        st.subheader("📊 Distribuição de Satisfação")
         fig_dist = px.histogram(
             filtered_df,
             x='review_score',
-            title="Distribuição das Avaliações",
+            title=" ",
             labels={'review_score': 'Nota', 'count': 'Quantidade de Avaliações'}
         )
         fig_dist.update_layout(
             xaxis=dict(range=[0, 5]),
             showlegend=False
         )
-        fig_dist.update_layout(dragmode=False, hovermode=False)
-        st.plotly_chart(fig_dist, use_container_width=True)
+        
+        # Renderizar gráfico com efeito glass
+        render_plotly_glass_card("📊 Distribuição de Satisfação", fig_dist)
         
         # Análise de correlação entre satisfação e outras métricas
         st.markdown(f"""
@@ -1426,8 +1526,6 @@ elif pagina == "Comportamento do Cliente":
     
     # ===== SEÇÃO 3: ANÁLISE DE TEXTOS DAS AVALIAÇÕES =====
     st.header("📝 Análise de Textos das Avaliações")
-    
-    
     
     # Realizar análise NLP
     nlp_results = analyze_reviews(filtered_df)
@@ -1485,43 +1583,43 @@ elif pagina == "Comportamento do Cliente":
     
     # Métricas gerais
     st.markdown("---")
-    st.subheader("📊 Métricas Gerais")
     
-    col1, col2, col3 = st.columns(3)
+    # Preparar dicionário de KPIs de Análise de Texto
+    text_analysis_kpis = {
+        "📊 Total de Avaliações Positivas": nlp_results['metrics']['positive_count'],
+        "📊 Total de Avaliações Neutras": nlp_results['metrics']['neutral_count'],
+        "📊 Total de Avaliações Negativas": nlp_results['metrics']['negative_count']
+    }
     
-    with col1:
-        st.metric("Total de Avaliações Positivas", nlp_results['metrics']['positive_count'])
-        st.metric("Tamanho Médio (caracteres)", int(nlp_results['metrics']['avg_positive_length']))
+    # Renderizar bloco de KPIs de Análise de Texto com efeito glass
+    render_kpi_block("📊 Métricas Gerais", text_analysis_kpis, cols_per_row=3)
     
-    with col2:
-        st.metric("Total de Avaliações Neutras", nlp_results['metrics']['neutral_count'])
-        st.metric("Tamanho Médio (caracteres)", int(nlp_results['metrics']['avg_neutral_length']))
-        
-    with col3:
-        st.metric("Total de Avaliações Negativas", nlp_results['metrics']['negative_count'])
-        st.metric("Tamanho Médio (caracteres)", int(nlp_results['metrics']['avg_negative_length']))
+    # Preparar dicionário de KPIs de Tamanho Médio
+    length_kpis = {
+        "📏 Tamanho Médio (Positivas)": f"{int(nlp_results['metrics']['avg_positive_length'])} caracteres",
+        "📏 Tamanho Médio (Neutras)": f"{int(nlp_results['metrics']['avg_neutral_length'])} caracteres",
+        "📏 Tamanho Médio (Negativas)": f"{int(nlp_results['metrics']['avg_negative_length'])} caracteres"
+    }
+    
+    # Renderizar bloco de KPIs de Tamanho Médio com efeito glass
+    render_kpi_block("📏 Tamanho Médio das Avaliações", length_kpis, cols_per_row=3)
     
     # Proporções
     st.markdown("---")
-    st.subheader("📈 Distribuição das Avaliações")
     
     total_reviews = (nlp_results['metrics']['positive_count'] + 
                     nlp_results['metrics']['neutral_count'] + 
                     nlp_results['metrics']['negative_count'])
     
-    col1, col2, col3 = st.columns(3)
+    # Preparar dicionário de KPIs de Proporções
+    proportion_kpis = {
+        "📈 Proporção Positivas": f"{(nlp_results['metrics']['positive_count'] / total_reviews):.1%}",
+        "📈 Proporção Neutras": f"{(nlp_results['metrics']['neutral_count'] / total_reviews):.1%}",
+        "📈 Proporção Negativas": f"{(nlp_results['metrics']['negative_count'] / total_reviews):.1%}"
+    }
     
-    with col1:
-        positive_ratio = nlp_results['metrics']['positive_count'] / total_reviews
-        st.metric("Proporção Positivas", f"{positive_ratio:.1%}")
-    
-    with col2:
-        neutral_ratio = nlp_results['metrics']['neutral_count'] / total_reviews
-        st.metric("Proporção Neutras", f"{neutral_ratio:.1%}")
-        
-    with col3:
-        negative_ratio = nlp_results['metrics']['negative_count'] / total_reviews
-        st.metric("Proporção Negativas", f"{negative_ratio:.1%}")
+    # Renderizar bloco de KPIs de Proporções com efeito glass
+    render_kpi_block("📈 Distribuição das Avaliações", proportion_kpis, cols_per_row=3)
 
 elif pagina == "Produtos e Categorias":
     st.title("Produtos e Categorias")
@@ -1566,13 +1664,16 @@ elif pagina == "Produtos e Categorias":
     st.sidebar.metric("Ticket Médio", f"R$ {format_value(avg_ticket)}")
     
     # 📊 Visão Geral
-    col1, col2, col3, col4 = st.columns(4)
+    # Preparar dicionário de KPIs principais
+    main_kpis = {
+        "📦 Total de Produtos": format_value(filtered_df['product_id'].nunique(), is_integer=True),
+        "🏷️ Categorias": format_value(filtered_df['product_category_name'].nunique(), is_integer=True),
+        "💰 Ticket Médio": f"R$ {format_value(avg_ticket)}",
+        "📈 Receita Total": f"R$ {format_value(total_revenue)}"
+    }
     
-    # KPIs principais ajustados para as categorias selecionadas
-    col1.metric("📦 Total de Produtos", format_value(filtered_df['product_id'].nunique(), is_integer=True))
-    col2.metric("🏷️ Categorias", format_value(filtered_df['product_category_name'].nunique(), is_integer=True))
-    col3.metric("💰 Ticket Médio", f"R$ {format_value(avg_ticket)}")
-    col4.metric("📈 Receita Total", f"R$ {format_value(total_revenue)}")
+    # Renderizar bloco de KPIs principais com efeito glass
+    render_kpi_block("📊 Visão Geral", main_kpis, cols_per_row=4)
     
     # Adicionar informação sobre o filtro ativo
     if "Todas as categorias" not in selected_categorias:
@@ -1588,56 +1689,55 @@ elif pagina == "Produtos e Categorias":
     
     with col1:
         # Top 10 Categorias por Receita
-        st.subheader("💰 Top 10 Categorias por Receita")
         category_revenue = filtered_df.groupby('product_category_name')['price'].sum().sort_values(ascending=False).head(10)
         fig_category = px.bar(
             x=category_revenue.index,
             y=category_revenue.values,
-            title="Top 10 Categorias por Receita",
+            title=" ",
             labels={'x': 'Categoria', 'y': 'Receita (R$)'},
             color=category_revenue.values,
             color_continuous_scale='Viridis'
         )
         fig_category.update_layout(showlegend=False)
-        fig_category.update_layout(dragmode=False, hovermode='x unified')
-        st.plotly_chart(fig_category, use_container_width=True)
+        
+        # Renderizar gráfico com efeito glass
+        render_plotly_glass_card("💰 Top 10 Categorias por Receita", fig_category)
         
         # Distribuição de Preços por Categoria
-        st.subheader("💵 Distribuição de Preços por Categoria")
         fig_price_dist = px.box(
             filtered_df,
             x='product_category_name',
             y='price',
-            title="Distribuição de Preços por Categoria",
+            title=" ",
             labels={'price': 'Preço (R$)', 'product_category_name': 'Categoria'}
         )
         fig_price_dist.update_layout(showlegend=False)
-        fig_price_dist.update_layout(dragmode=False, hovermode='x unified')
-        st.plotly_chart(fig_price_dist, use_container_width=True)
+        
+        # Renderizar gráfico com efeito glass
+        render_plotly_glass_card("💵 Distribuição de Preços por Categoria", fig_price_dist)
     
     with col2:
         # Top 10 Categorias por Quantidade
-        st.subheader("📦 Top 10 Categorias por Quantidade")
         category_quantity = filtered_df.groupby('product_category_name')['order_id'].count().sort_values(ascending=False).head(10)
         fig_quantity = px.bar(
             x=category_quantity.index,
             y=category_quantity.values,
-            title="Top 10 Categorias por Quantidade",
+            title=" ",
             labels={'x': 'Categoria', 'y': 'Quantidade de Pedidos'},
             color=category_quantity.values,
             color_continuous_scale='Viridis'
         )
         fig_quantity.update_layout(showlegend=False)
-        fig_quantity.update_layout(dragmode=False, hovermode='x unified')
-        st.plotly_chart(fig_quantity, use_container_width=True)
+        
+        # Renderizar gráfico com efeito glass
+        render_plotly_glass_card("📦 Top 10 Categorias por Quantidade", fig_quantity)
         
         # Taxa de Cancelamento por Categoria
-        st.subheader("❌ Taxa de Cancelamento por Categoria")
         category_cancellation = filtered_df.groupby('product_category_name')['pedido_cancelado'].mean().sort_values(ascending=False)
         fig_cancellation = px.bar(
             x=category_cancellation.index,
             y=category_cancellation.values,
-            title="Taxa de Cancelamento por Categoria",
+            title=" ",
             labels={'x': 'Categoria', 'y': 'Taxa de Cancelamento'},
             color=category_cancellation.values,
             color_continuous_scale='Reds'
@@ -1646,8 +1746,9 @@ elif pagina == "Produtos e Categorias":
             yaxis=dict(tickformat=".1%"),
             showlegend=False
         )
-        fig_cancellation.update_layout(dragmode=False, hovermode='x unified')
-        st.plotly_chart(fig_cancellation, use_container_width=True)
+        
+        # Renderizar gráfico com efeito glass
+        render_plotly_glass_card("❌ Taxa de Cancelamento por Categoria", fig_cancellation)
     
     st.markdown("---")
     
@@ -1688,29 +1789,29 @@ elif pagina == "Produtos e Categorias":
     
     with col1:
         # Evolução da Receita
-        st.subheader("💰 Evolução da Receita")
         fig_revenue = px.line(
             category_data,
-            x='month_str',  # Usar a coluna de string em vez de Period
+            x='month_str',
             y='price',
-            title=f"Evolução da Receita - {selected_category}",
+            title=" ",
             labels={'month_str': 'Mês', 'price': 'Receita (R$)'}
         )
-        fig_revenue.update_layout(dragmode=False, hovermode='x unified')
-        st.plotly_chart(fig_revenue, use_container_width=True)
+        
+        # Renderizar gráfico com efeito glass
+        render_plotly_glass_card("💰 Evolução da Receita", fig_revenue)
     
     with col2:
         # Evolução da Quantidade de Pedidos
-        st.subheader("📦 Evolução da Quantidade de Pedidos")
         fig_orders = px.line(
             category_data,
-            x='month_str',  # Usar a coluna de string em vez de Period
+            x='month_str',
             y='order_id',
-            title=f"Evolução da Quantidade de Pedidos - {selected_category}",
+            title=" ",
             labels={'month_str': 'Mês', 'order_id': 'Quantidade de Pedidos'}
         )
-        fig_orders.update_layout(dragmode=False, hovermode='x unified')
-        st.plotly_chart(fig_orders, use_container_width=True)
+        
+        # Renderizar gráfico com efeito glass
+        render_plotly_glass_card("📦 Evolução da Quantidade de Pedidos", fig_orders)
     
     st.markdown("---")
     
@@ -1732,26 +1833,36 @@ elif pagina == "Produtos e Categorias":
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("🌟 Categorias em Destaque")
+        # Preparar dicionário de KPIs para categorias em destaque
+        top_category_kpis = {}
         for idx, (category, metrics) in enumerate(top_categories.iterrows(), 1):
-            st.markdown(f"""
-            **{idx}. {category}**
-            - Receita Total: R$ {format_value(metrics[('price', 'sum')])}
-            - Ticket Médio: R$ {format_value(metrics[('price', 'mean')])}
-            - Quantidade de Pedidos: {format_value(metrics[('order_id', 'count')], is_integer=True)}
-            - Taxa de Cancelamento: {format_percentage(metrics[('pedido_cancelado', 'mean')])}
-            """)
+            top_category_kpis[f"🌟 {idx}. {category}"] = f"""
+            <ul style="list-style-type: none; padding-left: 0; margin: 0; line-height: 1.5;">
+                <li>Receita: R$ {format_value(metrics[('price', 'sum')])}</li>
+                <li>Ticket: R$ {format_value(metrics[('price', 'mean')])}</li>
+                <li>Pedidos: {format_value(metrics[('order_id', 'count')], is_integer=True)}</li>
+                <li>Cancelamento: {format_percentage(metrics[('pedido_cancelado', 'mean')])}</li>
+            </ul>
+            """
+        
+        # Renderizar bloco de KPIs de categorias em destaque com efeito glass
+        render_kpi_block("🌟 Categorias em Destaque", top_category_kpis, cols_per_row=1)
     
     with col2:
-        st.subheader("⚠️ Categorias que Precisam de Atenção")
+        # Preparar dicionário de KPIs para categorias que precisam de atenção
+        bottom_category_kpis = {}
         for idx, (category, metrics) in enumerate(bottom_categories.iterrows(), 1):
-            st.markdown(f"""
-            **{idx}. {category}**
-            - Receita Total: R$ {format_value(metrics[('price', 'sum')])}
-            - Ticket Médio: R$ {format_value(metrics[('price', 'mean')])}
-            - Quantidade de Pedidos: {format_value(metrics[('order_id', 'count')], is_integer=True)}
-            - Taxa de Cancelamento: {format_percentage(metrics[('pedido_cancelado', 'mean')])}
-            """)
+            bottom_category_kpis[f"⚠️ {idx}. {category}"] = f"""
+            <ul style="list-style-type: none; padding-left: 0; margin: 0; line-height: 1.5;">
+                <li>Receita: R$ {format_value(metrics[('price', 'sum')])}</li>
+                <li>Ticket: R$ {format_value(metrics[('price', 'mean')])}</li>
+                <li>Pedidos: {format_value(metrics[('order_id', 'count')], is_integer=True)}</li>
+                <li>Cancelamento: {format_percentage(metrics[('pedido_cancelado', 'mean')])}</li>
+            </ul>
+            """
+        
+        # Renderizar bloco de KPIs de categorias que precisam de atenção com efeito glass
+        render_kpi_block("⚠️ Categorias que Precisam de Atenção", bottom_category_kpis, cols_per_row=1)
     
     # Espaço para futuras análises
     st.markdown("---")
