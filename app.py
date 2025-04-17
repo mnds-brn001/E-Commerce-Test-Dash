@@ -99,7 +99,7 @@ if pagina == "Visão Geral":
     kpis = calculate_kpis(filtered_df, marketing_spend, date_range)
     
     # ===== SEÇÃO 1: KPIs PRINCIPAIS =====
-    st.header("📊 KPIs Principais")
+    
     
     # Preparar dicionário de KPIs
     kpi_values = {
@@ -842,8 +842,7 @@ elif pagina == "Aquisição e Retenção":
     kpis = calculate_kpis(filtered_df, marketing_spend, date_range)
     acquisition_kpis = calculate_acquisition_retention_kpis(filtered_df, marketing_spend, date_range)
     
-    # 📊 Visão Geral dos KPIs
-    st.header("📊 Visão Geral")
+    # 📊 Métricas
     
     # Preparar dicionário de KPIs de Clientes
     customer_kpis = {
@@ -1329,8 +1328,6 @@ elif pagina == "Comportamento do Cliente":
     acquisition_kpis = calculate_acquisition_retention_kpis(filtered_df, marketing_spend, date_range)
     
     # ===== SEÇÃO 1: VISÃO GERAL =====
-    st.header("📊 Visão Geral")
-    
     # Layout dos KPIs em duas seções
     st.subheader("👥 Métricas de Cliente")
     col1, col2, col3 = st.columns(3)
@@ -1569,7 +1566,6 @@ elif pagina == "Produtos e Categorias":
     st.sidebar.metric("Ticket Médio", f"R$ {format_value(avg_ticket)}")
     
     # 📊 Visão Geral
-    st.header("📊 Visão Geral")
     col1, col2, col3, col4 = st.columns(4)
     
     # KPIs principais ajustados para as categorias selecionadas
