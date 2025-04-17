@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
-from utils.KPIs import load_data, calculate_kpis, calculate_acquisition_retention_kpis, filter_by_date_range
+from utils.KPIs import load_data, calculate_kpis, calculate_acquisition_retention_kpis, filter_by_date_range, kpi_card, render_kpi_block, render_plotly_glass_card
 import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
@@ -78,8 +78,8 @@ st.sidebar.markdown("---")
 st.sidebar.title("Navegação")
 pagina = st.sidebar.radio(
     "Selecione a página:",
-    ["Visão Geral", "Análise Estratégica", "Aquisição e Retenção", 
-     "Comportamento do Cliente", "Produtos e Categorias", "Análise de Churn"]
+    ["Visão Geral", "Aquisição e Retenção", "Comportamento do Cliente",
+    "Produtos e Categorias","Análise de Churn","Análise Estratégica"]
 )
 
 # Funções auxiliares
@@ -101,28 +101,23 @@ if pagina == "Visão Geral":
     # ===== SEÇÃO 1: KPIs PRINCIPAIS =====
     st.header("📊 KPIs Principais")
     
-    # Layout dos KPIs em 3 linhas de 3 colunas
-    col1, col2, col3 = st.columns(3)
+    # Preparar dicionário de KPIs
+    kpi_values = {
+        "💰 Receita Total": f"R$ {format_value(kpis['total_revenue'])}",
+        "📦 Total de Pedidos": format_value(kpis['total_orders'], is_integer=True),
+        "👥 Total de Clientes": format_value(kpis['total_customers'], is_integer=True),
+        "🎯 Taxa de Abandono": format_percentage(kpis['abandonment_rate']),
+        "😊 Satisfação do Cliente": format_value(kpis['csat']),
+        "💰 Ticket Médio": f"R$ {format_value(kpis['average_ticket'])}",
+        "📦 Tempo Médio de Entrega": f"{int(kpis['avg_delivery_time'])} dias",
+        "❌ Taxa de Cancelamento": format_percentage(kpis['cancellation_rate']),
+        "💸 Receita Perdida": f"R$ {format_value(kpis['lost_revenue'])}"
+    }
     
-    # Primeira linha de KPIs - Métricas de Receita
-    col1.metric("💰 Receita Total", f"R$ {format_value(kpis['total_revenue'])}")
-    col2.metric("📦 Total de Pedidos", format_value(kpis['total_orders'], is_integer=True))
-    col3.metric("👥 Total de Clientes", format_value(kpis['total_customers'], is_integer=True))
-    
-    # Segunda linha de KPIs - Métricas de Performance
-    col1, col2, col3 = st.columns(3)
-    col1.metric("🎯 Taxa de Abandono", format_percentage(kpis['abandonment_rate']))
-    col2.metric("😊 Satisfação do Cliente", format_value(kpis['csat']))
-    col3.metric("💰 Ticket Médio", f"R$ {format_value(kpis['average_ticket'])}")
-    
-    # Terceira linha de KPIs - Métricas de Entrega e Cancelamento
-    col1, col2, col3 = st.columns(3)
-    col1.metric("📦 Tempo Médio de Entrega", f"{int(kpis['avg_delivery_time'])} dias")
-    col2.metric("❌ Taxa de Cancelamento", format_percentage(kpis['cancellation_rate']))
-    col3.metric("💸 Receita Perdida", f"R$ {format_value(kpis['lost_revenue'])}")
+    # Renderizar bloco de KPIs com efeito glass
+    render_kpi_block("📊 Métricas de Performance", kpi_values, cols_per_row=3)
     
     # ===== SEÇÃO 2: EVOLUÇÃO DA RECEITA =====
-    st.header("📈 Evolução da Receita")
     
     # Gráfico de Receita ao Longo do Tempo
     monthly_revenue = filtered_df.groupby(filtered_df['order_purchase_timestamp'].dt.to_period('M'))['price'].sum().reset_index()
@@ -131,15 +126,17 @@ if pagina == "Visão Geral":
         monthly_revenue,
         x='order_purchase_timestamp',
         y='price',
-        title="Evolução da Receita",
+        title=" ",
         labels={'price': 'Receita (R$)', 'order_purchase_timestamp': 'Mês'}
     )
     fig_revenue.update_layout(showlegend=False)
-    fig_revenue.update_layout(dragmode=False, hovermode=False)
-    st.plotly_chart(fig_revenue, use_container_width=True)
+    
+    # Renderizar o gráfico com efeito glass
+    render_plotly_glass_card("📈 Evolução da Receita Mensal", fig_revenue)
     
     # Adicionar insights sobre a receita
     col1, col2 = st.columns(2)
+    
     with col1:
         # Calcular crescimento da receita
         if len(monthly_revenue) >= 2:
@@ -177,28 +174,27 @@ if pagina == "Visão Geral":
         """, unsafe_allow_html=True)
     
     # ===== SEÇÃO 3: SATISFAÇÃO E CANCELAMENTO =====
-    st.header("😊 Satisfação e Cancelamento")
     
     col1, col2 = st.columns(2)
     
     with col1:
         # Gráfico de Satisfação do Cliente
-        st.subheader("Satisfação do Cliente")
         monthly_satisfaction = filtered_df.groupby(filtered_df['order_purchase_timestamp'].dt.to_period('M'))['review_score'].mean().reset_index()
         monthly_satisfaction['order_purchase_timestamp'] = monthly_satisfaction['order_purchase_timestamp'].astype(str)
         fig_satisfaction = px.line(
             monthly_satisfaction,
             x='order_purchase_timestamp',
             y='review_score',
-            title="Evolução da Satisfação",
+            title=" ",
             labels={'review_score': 'Nota Média', 'order_purchase_timestamp': 'Mês'}
         )
         fig_satisfaction.update_layout(
             yaxis=dict(range=[0, 5]),
             showlegend=False
         )
-        fig_satisfaction.update_layout(dragmode=False, hovermode=False)
-        st.plotly_chart(fig_satisfaction, use_container_width=True)
+        
+        # Renderizar gráfico com efeito glass
+        render_plotly_glass_card("😊 Evolução da Satisfação", fig_satisfaction)
         
         # Adicionar insights sobre satisfação
         avg_satisfaction = filtered_df['review_score'].mean()
@@ -219,22 +215,22 @@ if pagina == "Visão Geral":
     
     with col2:
         # Gráfico de Taxa de Cancelamento
-        st.subheader("Taxa de Cancelamento")
         monthly_cancellation = filtered_df.groupby(filtered_df['order_purchase_timestamp'].dt.to_period('M'))['pedido_cancelado'].mean().reset_index()
         monthly_cancellation['order_purchase_timestamp'] = monthly_cancellation['order_purchase_timestamp'].astype(str)
         fig_cancellation = px.line(
             monthly_cancellation,
             x='order_purchase_timestamp',
             y='pedido_cancelado',
-            title="Evolução da Taxa de Cancelamento",
+            title=" ",
             labels={'pedido_cancelado': 'Taxa de Cancelamento', 'order_purchase_timestamp': 'Mês'}
         )
         fig_cancellation.update_layout(
             yaxis=dict(tickformat=".1%"),
             showlegend=False
         )
-        fig_cancellation.update_layout(dragmode=False, hovermode=False)
-        st.plotly_chart(fig_cancellation, use_container_width=True)
+        
+        # Renderizar gráfico com efeito glass
+        render_plotly_glass_card("❌ Taxa de Cancelamento", fig_cancellation)
         
         # Adicionar insights sobre cancelamento
         avg_cancellation = filtered_df['pedido_cancelado'].mean()
@@ -300,8 +296,6 @@ elif pagina == "Análise Estratégica":
     kpis = calculate_kpis(filtered_df, marketing_spend, date_range)
     
     # ===== SEÇÃO 1: VISÃO GERAL E KPIs PRINCIPAIS =====
-    st.header("📊 Visão Geral")
-    
     # Layout dos KPIs
     col1, col2, col3 = st.columns(3)
     
@@ -397,7 +391,14 @@ elif pagina == "Análise Estratégica":
         fillcolor='rgba(44, 160, 44, 0.2)',
         line=dict(color='rgba(44, 160, 44, 0)'),
         name='Intervalo de Confiança (95%)',
-        showlegend=True
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        )
     ))
     
     fig_forecast.update_layout(
@@ -844,19 +845,343 @@ elif pagina == "Aquisição e Retenção":
     # 📊 Visão Geral dos KPIs
     st.header("📊 Visão Geral")
     
-    # Primeira linha - Métricas de Clientes
-    st.subheader("👥 Métricas de Clientes")
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Novos Clientes (Período)", format_value(acquisition_kpis['total_new_customers'], is_integer=True))
-    col2.metric("Taxa de Recompra", format_percentage(acquisition_kpis['repurchase_rate']))
-    col3.metric("Tempo até 2ª Compra", f"{int(acquisition_kpis['avg_time_to_second'])} dias")
+    # Preparar dicionário de KPIs de Clientes
+    customer_kpis = {
+        "👥 Novos Clientes (Período)": format_value(acquisition_kpis['total_new_customers'], is_integer=True),
+        "🔄 Taxa de Recompra": format_percentage(acquisition_kpis['repurchase_rate']),
+        "⏳ Tempo até 2ª Compra": f"{int(acquisition_kpis['avg_time_to_second'])} dias"
+    }
     
-    # Segunda linha - Métricas Financeiras
-    st.subheader("💰 Métricas Financeiras")
-    col1, col2, col3 = st.columns(3)
-    col1.metric("CAC", f"R$ {format_value(acquisition_kpis['cac'])}")
-    col2.metric("LTV", f"R$ {format_value(acquisition_kpis['ltv'])}")
-    col3.metric("LTV/CAC", format_value(acquisition_kpis['ltv'] / acquisition_kpis['cac'] if acquisition_kpis['cac'] > 0 else 0))
+    # Renderizar bloco de KPIs de Clientes com efeito glass
+    render_kpi_block("👥 Métricas de Clientes", customer_kpis, cols_per_row=3)
+    
+    # Preparar dicionário de KPIs Financeiros
+    financial_kpis = {
+        "💰 CAC": f"R$ {format_value(acquisition_kpis['cac'])}",
+        "📈 LTV": f"R$ {format_value(acquisition_kpis['ltv'])}",
+        "⚖️ LTV/CAC": format_value(acquisition_kpis['ltv'] / acquisition_kpis['cac'] if acquisition_kpis['cac'] > 0 else 0)
+    }
+    
+    # Renderizar bloco de KPIs Financeiros com efeito glass
+    render_kpi_block("💰 Métricas Financeiras", financial_kpis, cols_per_row=3)
+    
+    st.markdown("---")
+    
+    # 📈 Análise LTV/CAC
+    st.header("📈 Análise LTV/CAC")
+    
+    # Calcular LTV e CAC por mês
+    monthly_metrics = filtered_df.groupby(filtered_df['order_purchase_timestamp'].dt.to_period('M')).agg({
+        'price': 'sum',
+        'customer_unique_id': 'nunique',
+        'pedido_cancelado': 'sum'
+    }).reset_index()
+    
+    monthly_metrics['order_purchase_timestamp'] = monthly_metrics['order_purchase_timestamp'].astype(str)
+    monthly_metrics['monthly_revenue'] = monthly_metrics['price'] - (monthly_metrics['price'] * monthly_metrics['pedido_cancelado'])
+    
+    # Separar cálculo do LTV da visualização
+    monthly_metrics['monthly_ltv_raw'] = monthly_metrics['monthly_revenue'] / monthly_metrics['customer_unique_id']
+    monthly_metrics['monthly_ltv'] = -monthly_metrics['monthly_ltv_raw']  # só para visualização
+    monthly_metrics['monthly_cac'] = marketing_spend / 12
+    
+    # Calcular razão LTV/CAC usando o valor real (positivo)
+    monthly_metrics['ltv_cac_ratio'] = monthly_metrics['monthly_ltv_raw'] / monthly_metrics['monthly_cac']
+    
+    # Status atual usando valores reais
+    current_ltv = acquisition_kpis['ltv']  # já vem positivo
+    current_cac = acquisition_kpis['cac']
+    current_ratio = current_ltv / current_cac if current_cac > 0 else 0
+    
+    # Determinar status e cor
+    if current_ratio < 1:
+        status = "🚨 Crítico"
+        status_color = "#dc3545"
+    elif current_ratio == 1:
+        status = "⚠️ Limite"
+        status_color = "#ffc107"
+    elif current_ratio < 3:
+        status = "😬 Razoável"
+        status_color = "#17a2b8"
+    elif current_ratio == 3:
+        status = "✅ Ideal"
+        status_color = "#28a745"
+    else:
+        status = "💰 Alto"
+        status_color = "#007bff"
+    
+    # Determinar cor do texto baseado no tema
+    is_dark_theme = st.get_option("theme.base") == "dark"
+    text_color = "rgba(255,255,255,0.9)" if is_dark_theme else "rgba(0,0,0,0.9)"
+    
+    # Gráfico de Evolução LTV vs CAC
+    fig_comparison = go.Figure()
+    
+    # Adicionar dados históricos com anotação explicativa
+    fig_comparison.add_trace(go.Scatter(
+        x=monthly_metrics['order_purchase_timestamp'],
+        y=monthly_metrics['monthly_ltv'],
+        name='LTV (sinal invertido para visualização)',
+        fill='tozeroy',
+        line=dict(color='rgba(46, 204, 113, 0.3)'),
+        fillcolor='rgba(46, 204, 113, 0.3)'
+    ))
+    
+    fig_comparison.add_trace(go.Scatter(
+        x=monthly_metrics['order_purchase_timestamp'],
+        y=monthly_metrics['monthly_cac'],
+        name='CAC',
+        fill='tozeroy',
+        line=dict(color='rgba(231, 76, 60, 0.3)'),
+        fillcolor='rgba(231, 76, 60, 0.3)'
+    ))
+    
+    fig_comparison.add_trace(go.Scatter(
+        x=monthly_metrics['order_purchase_timestamp'],
+        y=monthly_metrics['ltv_cac_ratio'],
+        name='Razão LTV/CAC',
+        line=dict(color='#2c3e50', width=2),
+        yaxis='y2'
+    ))
+    
+    # Adicionar anotação explicativa
+    fig_comparison.add_annotation(
+        x=0.5,
+        y=1.1,
+        xref="paper",
+        yref="paper",
+        text="Nota: O LTV está representado com sinal invertido apenas para facilitar a visualização no gráfico",
+        showarrow=False,
+        font=dict(size=12, color="#666")
+    )
+    
+    fig_comparison.update_layout(
+        showlegend=True,
+        yaxis2=dict(
+            title="Razão LTV/CAC",
+            overlaying="y",
+            side="right",
+            showgrid=False
+        ),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        )
+    )
+    
+    # Renderizar gráfico com efeito glass
+    render_plotly_glass_card("📈 Evolução LTV vs CAC ao Longo do Tempo", fig_comparison)
+    
+    # Análise de tendência dinâmica
+    if len(monthly_metrics) >= 2:
+        # Calcular período analisado
+        start_date = pd.to_datetime(monthly_metrics['order_purchase_timestamp'].iloc[0])
+        end_date = pd.to_datetime(monthly_metrics['order_purchase_timestamp'].iloc[-1])
+        meses_filtrados = ((end_date.year - start_date.year) * 12 + end_date.month - start_date.month) + 1
+        
+        # Calcular médias para diferentes períodos
+        n_months = min(3, len(monthly_metrics))
+        recent_ratio = monthly_metrics['ltv_cac_ratio'].tail(n_months).mean()
+        older_ratio = monthly_metrics['ltv_cac_ratio'].head(n_months).mean()
+        
+        # Calcular variação percentual
+        delta_percent = ((recent_ratio - older_ratio) / abs(older_ratio)) * 100 if older_ratio != 0 else 0
+        
+        # Determinar direção da tendência e ícone
+        if abs(delta_percent) < 1:
+            trend_icon = "➡️"
+            trend_color = "#808080"
+            trend_text = "estável"
+        elif delta_percent > 0:
+            trend_icon = "⬆️"
+            trend_color = "#28a745"
+            trend_text = "crescimento"
+        else:
+            trend_icon = "⬇️"
+            trend_color = "#dc3545"
+            trend_text = "queda"
+        
+        # Criar texto de período baseado no filtro
+        if periodo == "Todo o período":
+            periodo_texto = "no período total"
+        elif periodo == "Último mês":
+            periodo_texto = "no último mês"
+        elif periodo == "Últimos 2 meses":
+            periodo_texto = "nos últimos 2 meses"
+        elif periodo == "Último trimestre":
+            periodo_texto = "no último trimestre"
+        elif periodo == "Último semestre":
+            periodo_texto = "no último semestre"
+        elif periodo == "Último ano":
+            periodo_texto = "no último ano"
+        elif periodo == "Últimos 2 anos":
+            periodo_texto = "nos últimos 2 anos"
+        
+        # Layout para Status e Análise de Tendência
+        col1, col2 = st.columns(2)
+
+        with col1:
+            # Status Card
+            st.markdown(f"""
+            <div style="
+                backdrop-filter: blur(10px);
+                background: rgba(255, 255, 255, 0.08);
+                border-radius: 20px;
+                padding: 25px;
+                margin: 20px 0;
+                border: 1px solid {status_color};
+                box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+                color: {text_color};
+                text-align: center;
+            ">
+                <h3 style="margin-top: 0; color: {text_color};">Status Atual</h3>
+                <p style="font-size: 24px; font-weight: bold; color: {status_color};">{status}</p>
+                <p style="font-size: 18px;">Razão LTV/CAC: {format_value(current_ratio)}</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Ações Recomendadas com efeito glass
+            if current_ratio < 1:
+                recommendations = [
+                    ("📉 Reduzir o CAC", "Otimize suas campanhas de marketing para reduzir o custo de aquisição"),
+                    ("📈 Aumentar o LTV", "Implemente estratégias de upselling e cross-selling"),
+                    ("💰 Revisar modelo", "Avalie se o preço dos produtos/serviços está adequado")
+                ]
+                rec_color = "#e74c3c"  # Vermelho para situação crítica
+                rec_icon = "🚨"
+                rec_status = "Situação Crítica"
+            elif current_ratio < 3:
+                recommendations = [
+                    ("🔍 Testar novos canais", "Explore canais com potencial de menor CAC"),
+                    ("🔄 Melhorar retenção", "Implemente programas de fidelidade para aumentar o LTV"),
+                    ("⚡ Otimizar funil", "Identifique e corrija gargalos no processo de aquisição")
+                ]
+                rec_color = "#f1c40f"  # Amarelo para situação de atenção
+                rec_icon = "⚠️"
+                rec_status = "Necessita Atenção"
+            elif current_ratio > 5:
+                recommendations = [
+                    ("📈 Aumentar marketing", "Você pode estar subinvestindo em crescimento"),
+                    ("🌍 Expandir mercados", "Aproveite a eficiência atual para escalar o negócio"),
+                    ("🔄 Diversificar canais", "Explore novos canais para manter a eficiência")
+                ]
+                rec_color = "#3498db"  # Azul para oportunidade de crescimento
+                rec_icon = "💰"
+                rec_status = "Oportunidade de Crescimento"
+            else:
+                recommendations = [
+                    ("⚖️ Manter equilíbrio", "Continue monitorando a razão LTV/CAC"),
+                    ("📊 Testar aumentos", "Experimente aumentar o investimento em marketing"),
+                    ("🔍 Otimizar processos", "Foque em melhorias incrementais")
+                ]
+                rec_color = "#2ecc71"  # Verde para situação saudável
+                rec_icon = "✅"
+                rec_status = "Situação Saudável"
+
+            # Generate recommendations HTML as a separate string
+            recs_html = ""
+            for title, desc in recommendations:
+                recs_html += (
+                    f"<li style='margin-bottom: 15px;'>"
+                    f"<strong style='color: {rec_color};'>{title}:</strong> "
+                    f"<span style='color: {text_color};'>{desc}</span>"
+                    f"</li>"
+                )
+
+            # Build the recommendations block with minimal f-string interpolation
+            recommendations_block = (
+                "<div style='"
+                "backdrop-filter: blur(10px);"
+                "background: rgba(255,255,255,0.08);"
+                "border-radius: 20px;"
+                "padding: 25px;"
+                "margin: 30px 0;"
+                f"border: 1px solid {rec_color};"
+                f"box-shadow: 0 4px 20px rgba(0,0,0,0.1);"
+                f"color: {text_color};"
+                "'>"
+                "<div style='"
+                "display: flex;"
+                "align-items: center;"
+                "margin-bottom: 20px;"
+                "padding-bottom: 15px;"
+                f"border-bottom: 1px solid {rec_color};"
+                "'>"
+                f"<h3 style='margin: 0; color: {text_color};'>🎯 Ações Recomendadas</h3>"
+                f"<div style='margin-left: auto; padding: 5px 12px; background: rgba({rec_color.replace('#', '')}, 0.1); border-radius: 15px; border: 1px solid {rec_color};'>"
+                f"<span style='color: {rec_color};'>{rec_icon} {rec_status}</span>"
+                "</div></div>"
+                "<ul style='font-size: 1.1em; padding-left: 20px; line-height: 1.7; margin: 0;'>"
+                f"{recs_html}"
+                "</ul></div>"
+            )
+            
+            st.markdown(recommendations_block, unsafe_allow_html=True)
+
+        with col2:
+            # Passo 1: Criar a tabela do guia como string separada
+            guide_table = """
+            <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.2);">
+                <h3 style="margin-top: 0;">📋 Guia de Interpretação: LTV/CAC</h3>
+                <table style="width: 100%; border-collapse: collapse; font-size: 1.05em;">
+                    <thead>
+                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.3);">
+                            <th align="left">Faixa</th>
+                            <th align="left">Interpretação</th>
+                            <th align="left">Situação</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>&lt; 1</td><td>Você perde dinheiro por cliente</td><td style="color: #e74c3c;">🚨 Ruim</td></tr>
+                        <tr><td>= 1</td><td>Você empata</td><td style="color: #f39c12;">⚠️ Limite</td></tr>
+                        <tr><td>1 &lt; x &lt; 3</td><td>Lucro baixo</td><td style="color: #f1c40f;">😬 Razoável</td></tr>
+                        <tr><td>= 3</td><td>Ponto ideal (clássico)</td><td style="color: #2ecc71;">✅ Saudável</td></tr>
+                        <tr><td>&gt; 3</td><td>Lucro alto</td><td style="color: #3498db;">💰 Excelente</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            """
+
+            # Passo 2: Montar o bloco de tendência como string segura
+            trend_card = f"""
+            <div style="
+                backdrop-filter: blur(10px);
+                background: rgba(255, 255, 255, 0.08);
+                border-radius: 20px;
+                padding: 25px;
+                margin: 20px 0;
+                border: 1px solid rgba(255,255,255,0.3);
+                box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+                color: {text_color};
+            ">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
+                    <div style="flex: 1; padding-right: 20px; border-right: 1px solid rgba(255,255,255,0.2);">
+                        <h3 style="margin-top: 0;">📈 Análise de Tendência</h3>
+                        <p style="font-size: 1.1em;">{trend_icon} A razão LTV/CAC está em <strong style='color:{trend_color};'>{trend_text}</strong></p>
+                        <p style="font-size: 1.1em;">Variação de <strong>{delta_percent:+.1f}%</strong> {periodo_texto}</p>
+                    </div>
+                    <div style="flex: 1; padding-left: 20px;">
+                        <h3 style="margin-top: 0;">📊 Detalhamento da Análise</h3>
+                        <ul style="list-style-type: none; padding-left: 0; margin: 0;">
+                            <li style="margin: 8px 0;">📅 Período analisado: <strong>{start_date.strftime('%b/%Y')} a {end_date.strftime('%b/%Y')}</strong></li>
+                            <li style="margin: 8px 0;">📉 LTV/CAC médio período inicial: <strong>{format_value(older_ratio)}</strong></li>
+                            <li style="margin: 8px 0;">📈 LTV/CAC médio período recente: <strong>{format_value(recent_ratio)}</strong></li>
+                            <li style="margin: 8px 0;">📊 Meses considerados por período: <strong>{n_months}</strong></li>
+                        </ul>
+                    </div>
+                </div>
+                {guide_table}
+            </div>
+            """
+
+            # Passo 3: Renderizar no Streamlit
+            st.markdown(trend_card, unsafe_allow_html=True)
+
+    else:
+        st.warning("⚠️ Período insuficiente para análise de tendência (mínimo 2 meses)")
     
     st.markdown("---")
     
@@ -867,7 +1192,6 @@ elif pagina == "Aquisição e Retenção":
     
     with col1:
         # Gráfico de Novos vs Retornando
-        st.subheader("👥 Evolução de Clientes")
         fig_customers = go.Figure()
         
         fig_customers.add_trace(go.Bar(
@@ -885,11 +1209,8 @@ elif pagina == "Aquisição e Retenção":
         ))
         
         fig_customers.update_layout(
-            title="Evolução de Novos e Clientes Retornando",
+            title=" ",
             barmode='stack',
-            xaxis_title="Mês",
-            yaxis_title="Número de Clientes",
-            yaxis=dict(tickformat=",d"),
             showlegend=True,
             legend=dict(
                 orientation="h",
@@ -899,15 +1220,12 @@ elif pagina == "Aquisição e Retenção":
                 x=1
             )
         )
-        fig_customers.update_layout(dragmode=False, hovermode='x unified')
-        st.plotly_chart(fig_customers, use_container_width=True)
+        
+        # Renderizar gráfico com efeito glass
+        render_plotly_glass_card("👥 Evolução de Clientes", fig_customers)
     
     with col2:
         # Funil de Status dos Pedidos
-        st.subheader("🔄 Funil de Pedidos")
-        
-        # Preparar dados para o funil
-        # Primeiro, vamos ordenar os pedidos por data para garantir a sequência correta
         funnel_df = filtered_df.sort_values('order_purchase_timestamp')
         
         # Calcular quantidade de pedidos em cada etapa
@@ -944,319 +1262,66 @@ elif pagina == "Aquisição e Retenção":
         ))
         
         fig_funnel.update_layout(
-            title="Funil de Conversão de Pedidos",
+            title=" ",
             showlegend=False
         )
-        fig_funnel.update_layout(dragmode=False, hovermode=False)
-        st.plotly_chart(fig_funnel, use_container_width=True)
         
-        # Calcular e mostrar taxas de conversão entre etapas
-        st.markdown("**Taxa de Conversão entre Etapas:**")
-        for i in range(len(funnel_data) - 1):
-            current_count = funnel_data.iloc[i]['count']
-            next_count = funnel_data.iloc[i + 1]['count']
-            if current_count > 0:
-                conversion_rate = (next_count / current_count) * 100
-                current_label = funnel_data.iloc[i]['status_label']
-                next_label = funnel_data.iloc[i + 1]['status_label']
-                
-                # Adicionar ícone baseado na taxa de conversão
-                if conversion_rate >= 95:
-                    icon = "🟢"  # Verde para alta conversão
-                elif conversion_rate >= 85:
-                    icon = "🟡"  # Amarelo para conversão média
-                else:
-                    icon = "🔴"  # Vermelho para baixa conversão
-                
-                st.markdown(f"{icon} {current_label} → {next_label}: {conversion_rate:.1f}%")
+        # Renderizar gráfico com efeito glass
+        render_plotly_glass_card("🔄 Funil de Pedidos", fig_funnel)
         
-        # Adicionar insights baseados nos dados
-        st.markdown("---")
-        st.markdown("**💡 Insights do Funil:**")
+        # Calcular taxas de conversão entre etapas
+        conversion_rates = {
+            'created_to_approved': (funnel_counts['approved'] / funnel_counts['created']) * 100,
+            'approved_to_shipped': (funnel_counts['shipped'] / funnel_counts['approved']) * 100,
+            'shipped_to_delivered': (funnel_counts['delivered'] / funnel_counts['shipped']) * 100
+        }
         
-        # Calcular taxa de aprovação
-        approval_rate = (funnel_counts['approved'] / funnel_counts['created']) * 100
-        # Calcular taxa de entrega
-        delivery_rate = (funnel_counts['delivered'] / funnel_counts['shipped']) * 100
-        
-        insights = []
-        
-        if approval_rate < 90:
-            insights.append(f"⚠️ Taxa de aprovação de pedidos está em {approval_rate:.1f}%. Verificar processo de aprovação.")
-        
-        if delivery_rate < 95:
-            insights.append(f"⚠️ Taxa de entrega está em {delivery_rate:.1f}%. Avaliar performance logística.")
-        
-        if not insights:
-            insights.append("✅ Funil de pedidos operando com taxas saudáveis de conversão.")
-        
-        for insight in insights:
-            st.markdown(insight)
-    
-    st.markdown("---")
-    
-    # 💰 Análise de LTV/CAC
-    st.header("💰 Análise de LTV/CAC")
-    
-    # Calcular LTV e CAC por mês
-    monthly_metrics = filtered_df.groupby(filtered_df['order_purchase_timestamp'].dt.to_period('M')).agg({
-        'price': 'sum',
-        'customer_unique_id': 'nunique',
-        'pedido_cancelado': 'sum'
-    }).reset_index()
-    
-    monthly_metrics['order_purchase_timestamp'] = monthly_metrics['order_purchase_timestamp'].astype(str)
-    monthly_metrics['monthly_revenue'] = monthly_metrics['price'] - (monthly_metrics['price'] * monthly_metrics['pedido_cancelado'])
-    monthly_metrics['monthly_ltv'] = monthly_metrics['monthly_revenue'] / monthly_metrics['customer_unique_id']
-    monthly_metrics['monthly_cac'] = marketing_spend / 12
-    
-    # Calcular razão LTV/CAC antes de inverter o sinal do LTV
-    monthly_metrics['ltv_cac_ratio'] = monthly_metrics['monthly_ltv'] / monthly_metrics['monthly_cac']
-    
-    # Inverter o sinal do LTV apenas para visualização
-    monthly_metrics['monthly_ltv'] = -monthly_metrics['monthly_ltv']
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # Gráfico de Evolução LTV vs CAC
-        st.subheader("📈 Evolução LTV vs CAC")
-        fig_comparison = go.Figure()
-        
-        fig_comparison.add_trace(go.Scatter(
-            x=monthly_metrics['order_purchase_timestamp'],
-            y=monthly_metrics['monthly_ltv'],
-            name='LTV',
-            fill='tozeroy',
-            line=dict(color='rgba(46, 204, 113, 0.3)'),
-            fillcolor='rgba(46, 204, 113, 0.3)'
-        ))
-        
-        fig_comparison.add_trace(go.Scatter(
-            x=monthly_metrics['order_purchase_timestamp'],
-            y=monthly_metrics['monthly_cac'],
-            name='CAC',
-            fill='tozeroy',
-            line=dict(color='rgba(231, 76, 60, 0.3)'),
-            fillcolor='rgba(231, 76, 60, 0.3)'
-        ))
-        
-        fig_comparison.add_trace(go.Scatter(
-            x=monthly_metrics['order_purchase_timestamp'],
-            y=monthly_metrics['ltv_cac_ratio'],
-            name='Razão LTV/CAC',
-            line=dict(color='#2c3e50', width=2),
-            yaxis='y2'
-        ))
-        
-        fig_comparison.update_layout(
-            title="Evolução do LTV vs CAC ao Longo do Tempo",
-            xaxis_title="Mês",
-            yaxis=dict(
-                title="Valor (R$)",
-                side="left"
-            ),
-            yaxis2=dict(
-                title="Razão LTV/CAC",
-                overlaying="y",
-                side="right",
-                showgrid=False
-            ),
-            showlegend=True,
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="right",
-                x=1
-            ),
-            hovermode='x unified'
-        )
-        
-        # Adicionar linhas de referência
-        fig_comparison.add_shape(
-            type="line",
-            x0=monthly_metrics['order_purchase_timestamp'].iloc[0],
-            x1=monthly_metrics['order_purchase_timestamp'].iloc[-1],
-            y0=0,
-            y1=0,
-            line=dict(color="gray", width=1, dash="dash"),
-            yref="y"
-        )
-        
-        fig_comparison.add_shape(
-            type="line",
-            x0=monthly_metrics['order_purchase_timestamp'].iloc[0],
-            x1=monthly_metrics['order_purchase_timestamp'].iloc[-1],
-            y0=1,
-            y1=1,
-            line=dict(color="gray", width=1, dash="dash"),
-            yref="y2"
-        )
-        
-        fig_comparison.add_shape(
-            type="line",
-            x0=monthly_metrics['order_purchase_timestamp'].iloc[0],
-            x1=monthly_metrics['order_purchase_timestamp'].iloc[-1],
-            y0=3,
-            y1=3,
-            line=dict(color="green", width=1, dash="dash"),
-            yref="y2"
-        )
-        
-        fig_comparison.update_layout(dragmode=False)
-        st.plotly_chart(fig_comparison, use_container_width=True)
-    
-    with col2:
-        # Status atual e recomendações
-        current_ltv = acquisition_kpis['ltv']
-        current_cac = acquisition_kpis['cac']
-        current_ratio = current_ltv / current_cac if current_cac > 0 else 0
-        
-        # Determinar status
-        if current_ratio < 1:
-            status = "🚨 Crítico"
-            status_color = "red"
-        elif current_ratio == 1:
-            status = "⚠️ Limite"
-            status_color = "orange"
-        elif current_ratio < 3:
-            status = "😬 Razoável"
-            status_color = "yellow"
-        elif current_ratio == 3:
-            status = "✅ Ideal"
-            status_color = "green"
-        else:
-            status = "💰 Alto"
-            status_color = "blue"
-        
-        st.subheader("📊 Status Atual")
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("LTV", f"R$ {format_value(current_ltv)}")
-        col2.metric("CAC", f"R$ {format_value(current_cac)}")
-        col3.metric("Razão LTV/CAC", format_value(current_ratio))
-        col4.markdown(f"<h3 style='color: {status_color};'>{status}</h3>", unsafe_allow_html=True)
-        
-        # Análise de tendência dinâmica
-        st.markdown("**📈 Análise de Tendência**")
-        
-        if len(monthly_metrics) >= 2:
-            # Calcular período analisado
-            start_date = pd.to_datetime(monthly_metrics['order_purchase_timestamp'].iloc[0])
-            end_date = pd.to_datetime(monthly_metrics['order_purchase_timestamp'].iloc[-1])
-            meses_filtrados = ((end_date.year - start_date.year) * 12 + end_date.month - start_date.month) + 1
-            
-            # Calcular médias para diferentes períodos
-            n_months = min(3, len(monthly_metrics))  # Usar 3 meses ou menos se não houver dados suficientes
-            recent_ratio = monthly_metrics['ltv_cac_ratio'].tail(n_months).mean()
-            older_ratio = monthly_metrics['ltv_cac_ratio'].head(n_months).mean()
-            
-            # Calcular variação percentual
-            if older_ratio != 0:
-                delta_percent = ((recent_ratio - older_ratio) / abs(older_ratio)) * 100
+        # Determinar status e ícones baseados nas taxas
+        def get_status_icon(rate):
+            if rate >= 95:
+                return "🟢"  # Verde para alta conversão
+            elif rate >= 85:
+                return "🟡"  # Amarelo para conversão média
             else:
-                delta_percent = 0
-                st.warning("⚠️ Razão LTV/CAC inicial é zero - não é possível calcular variação percentual")
-            
-            # Determinar direção da tendência e ícone
-            if abs(delta_percent) < 1:
-                trend_icon = "➡️"
-                trend_color = "#808080"  # Cinza para estável
-                trend_text = "estável"
-            elif delta_percent > 0:
-                trend_icon = "⬆️"
-                trend_color = "#28a745"  # Verde para aumento
-                trend_text = "crescimento"
-            else:
-                trend_icon = "⬇️"
-                trend_color = "#dc3545"  # Vermelho para diminuição
-                trend_text = "queda"
-            
-            # Criar texto de período baseado no filtro selecionado
-            if periodo == "Todo o período":
-                periodo_texto = "no período total"
-            elif periodo == "Último mês":
-                periodo_texto = "no último mês"
-            elif periodo == "Últimos 2 meses":
-                periodo_texto = "nos últimos 2 meses"
-            elif periodo == "Último trimestre":
-                periodo_texto = "no último trimestre"
-            elif periodo == "Último semestre":
-                periodo_texto = "no último semestre"
-            elif periodo == "Último ano":
-                periodo_texto = "no último ano"
-            elif periodo == "Últimos 2 anos":
-                periodo_texto = "nos últimos 2 anos"
-            
-            # Exibir análise de tendência
-            st.markdown(f"""
-            <div style='
-                padding: 20px;
-                border-radius: 5px;
-                border-left: 5px solid {trend_color};
-                background-color: rgba(0,0,0,0.05);
-            '>
-                {trend_icon} A razão LTV/CAC está em <span style='color: {trend_color};'><strong>{trend_text}</strong></span><br>
-                Variação de <strong>{delta_percent:+.1f}%</strong> {periodo_texto}
+                return "🔴"  # Vermelho para baixa conversão
+        
+        # Criar seção de conversão com efeito glass
+        conversion_section = f"""
+        <div style="
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            padding: 25px;
+            margin: 30px 0;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            color: {text_color};
+        ">
+            <h3 style="margin-top: 0;color: {text_color};">🔄 Taxa de Conversão entre Etapas</h3>
+            <ul style="font-size: 1.1em;color: {text_color}; padding-left: 20px;">
+                <li>{get_status_icon(conversion_rates['created_to_approved'])} <strong>Pedidos Criados → Aprovados:</strong> {conversion_rates['created_to_approved']:.1f}%</li>
+                <li>{get_status_icon(conversion_rates['approved_to_shipped'])} <strong>Pedidos Aprovados → Enviados:</strong> {conversion_rates['approved_to_shipped']:.1f}%</li>
+                <li>{get_status_icon(conversion_rates['shipped_to_delivered'])} <strong>Pedidos Enviados → Entregues:</strong> {conversion_rates['shipped_to_delivered']:.1f}%</li>
+            </ul>
+            <div style="
+                margin-top: 20px;
+                background: rgba(0, 255, 100, 0.1);
+                padding: 15px;
+                border-left: 4px solid #00ff66;
+                border-radius: 10px;
+                font-size: 1.05em;
+                color: {text_color};
+            ">
+                💡 <strong>Insight:</strong> {
+                    'Funil de pedidos operando com <strong>taxas saudáveis</strong> de conversão.'
+                    if all(rate >= 95 for rate in conversion_rates.values())
+                    else 'Oportunidades de melhoria identificadas nas taxas de conversão.'
+                }
             </div>
-            """, unsafe_allow_html=True)
-            
-            # Adicionar detalhamento
-            with st.expander("Ver detalhes da análise"):
-                st.markdown(f"""
-                - Período analisado: {start_date.strftime('%b/%Y')} a {end_date.strftime('%b/%Y')}
-                - LTV/CAC médio período inicial: {format_value(older_ratio)}
-                - LTV/CAC médio período recente: {format_value(recent_ratio)}
-                - Meses considerados por período: {n_months}
-                """)
-        else:
-            st.warning("⚠️ Período insuficiente para análise de tendência (mínimo 2 meses)")
-    
-    st.markdown("---")
-    
-    # 💡 Recomendações
-    st.header("💡 Recomendações")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("📋 Guia de Interpretação")
-        st.markdown("""
-        | Razão LTV/CAC | Interpretação | Situação |
-        |--------------|---------------|----------|
-        | < 1 | Você perde dinheiro por cliente | 🚨 Ruim. Custa mais do que retorna. |
-        | = 1 | Você empata | ⚠️ Não é sustentável. |
-        | 1 < x < 3 | Lucro baixo | 😬 Razoável, mas pode melhorar. |
-        | = 3 | Ponto ideal (clássico) | ✅ Saudável, lucro balanceado. |
-        | > 3 | Lucro alto | 💰 Pode ser bom... ou pode estar subinvestindo. |
-        """)
-    
-    with col2:
-        st.subheader("🎯 Ações Recomendadas")
-        if current_ratio < 1:
-            st.markdown("""
-            - **Reduzir o CAC**: Otimize suas campanhas de marketing para reduzir o custo de aquisição
-            - **Aumentar o LTV**: Implemente estratégias de upselling e cross-selling para aumentar o valor dos clientes
-            - **Revisar o modelo de negócio**: Avalie se o preço dos produtos/serviços está adequado
-            """)
-        elif current_ratio < 3:
-            st.markdown("""
-            - **Testar novos canais de aquisição**: Explore canais com potencial de menor CAC
-            - **Melhorar a retenção**: Implemente programas de fidelidade para aumentar o LTV
-            - **Otimizar o funil de conversão**: Identifique e corrija gargalos no processo de aquisição
-            """)
-        elif current_ratio > 5:
-            st.markdown("""
-            - **Aumentar investimento em marketing**: Você pode estar subinvestindo em crescimento
-            - **Expandir para novos mercados**: Aproveite a eficiência atual para escalar o negócio
-            - **Diversificar canais de aquisição**: Explore novos canais para manter a eficiência
-            """)
-        else:
-            st.markdown("""
-            - **Manter o equilíbrio atual**: Continue monitorando a razão LTV/CAC
-            - **Testar pequenos aumentos no CAC**: Experimente aumentar o investimento em marketing para ver se mantém a eficiência
-            - **Focar em melhorias incrementais**: Pequenas otimizações podem levar a ganhos significativos
-            """)
+        </div>
+        """
+        
+        st.markdown(conversion_section, unsafe_allow_html=True)
 
 elif pagina == "Comportamento do Cliente":
     st.title("Comportamento do Cliente")
