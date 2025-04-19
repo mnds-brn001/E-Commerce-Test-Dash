@@ -221,7 +221,8 @@ def define_churn(df, cutoff_date):
 
 def kpi_card(title, value, help_text=None):
     """Creates a KPI card with a glass effect."""
-    text_color = "#FFFFFF"  # White text for readability
+    is_dark_theme = st.get_option("theme.base") == "dark"
+    text_color = "rgba(255,255,255,0.9)" if is_dark_theme else "rgba(0,0,0,0.9)"
     border_color = "rgba(255, 255, 255, 0.3)"  # Semi-transparent white border
     bg_color = "rgba(255, 255, 255, 0.1)"  # Semi-transparent white background
     shadow_color = "rgba(0, 0, 0, 0.1)"  # Light shadow
@@ -237,7 +238,6 @@ def kpi_card(title, value, help_text=None):
             font-size: 22px;
             font-family: 'Inter', sans-serif;
             font-weight: bold;
-            color: {text_color};
             border: 1px solid {border_color};
             box-shadow: 0 4px 30px {shadow_color};">
             {title}  
@@ -257,91 +257,60 @@ def kpi_card(title, value, help_text=None):
         unsafe_allow_html=True
     )
 
-def render_kpi_block(title, kpi_dict, cols_per_row=3):
+def render_kpi_block(kpi_values=None, cols_per_row=3):
     """
-    Renders multiple KPIs in a single glass-effect container.
+    Renderiza um bloco de KPIs com efeito glass.
     
     Args:
-        title (str): The title of the KPI block
-        kpi_dict (dict): Dictionary of KPI names and their values
-        cols_per_row (int): Number of columns per row (default: 3)
+        kpi_values (dict): Dicionário com os valores dos KPIs
+        cols_per_row (int): Número de colunas por linha (padrão: 3)
     """
-    # Determine text color based on theme
+    if kpi_values:
+        # Calcular número de linhas necessárias
+        num_kpis = len(kpi_values)
+        num_rows = (num_kpis + cols_per_row - 1) // cols_per_row
+        
+        # Criar layout de colunas
+        cols = st.columns(cols_per_row)
+        
+        # Preencher as colunas com os KPIs
+        for i, (kpi_name, kpi_value) in enumerate(kpi_values.items()):
+            row = i // cols_per_row
+            col = i % cols_per_row
+            
+            with cols[col]:
+                kpi_card(kpi_name, kpi_value)
+
+def render_kpi_block_title(title, cols_per_row=3):
+    """
+    Renderiza um título estilizado para um bloco de KPIs.
+    
+    Args:
+        title (str): Título do bloco de KPIs
+        cols_per_row (int): Número de colunas por linha (padrão: 3)
+    """
     is_dark_theme = st.get_option("theme.base") == "dark"
     text_color = "rgba(255,255,255,0.9)" if is_dark_theme else "rgba(0,0,0,0.9)"
-    subtitle_color = "rgba(255,255,255,0.7)" if is_dark_theme else "rgba(0,0,0,0.7)"
     
-    # Add responsive CSS separately
-    st.markdown("""
-        <style>
-            @media (max-width: 768px) {
-                div[data-testid="column"] {
-                    width: 48% !important;
-                    flex: 1 1 48% !important;
-                    min-width: 48% !important;
-                }
-            }
-        </style>
-    """, unsafe_allow_html=True)
-    
-    # Render the container with glass effect
     st.markdown(f"""
     <div style="
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
         backdrop-filter: blur(10px);
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 20px;
-        padding: 30px;
-        margin: 20px 0;
-        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
         box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        
     ">
-        <h2 style="color: {text_color}; text-align: center; margin-bottom: 30px; font-family: 'Inter', sans-serif;">{title}</h2>
+        <h2 style="
+            margin: 0;
+            font-size: 1.5em;
+            text-align: center;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        ">{title}</h2>
+    </div>
     """, unsafe_allow_html=True)
-
-    # Calculate number of rows needed
-    kpi_items = list(kpi_dict.items())
-    rows = (len(kpi_items) + cols_per_row - 1) // cols_per_row
-
-    # Create rows and columns
-    for i in range(rows):
-        cols = st.columns(cols_per_row)
-        for j in range(cols_per_row):
-            idx = i * cols_per_row + j
-            if idx < len(kpi_items):
-                kpi_title, kpi_value = kpi_items[idx]
-                with cols[j]:
-                    st.markdown(f"""
-                        <div style="
-                            backdrop-filter: blur(10px);
-                            background: rgba(255, 255, 255, 0.1);
-                            border: 1px solid rgba(255, 255, 255, 0.3);
-                            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-                            text-align: center;
-                            padding: 20px;
-                            border-radius: 15px;
-                            transition: all 0.3s ease;
-                            height: 100%;
-                            margin: 5px;
-                        "
-                        onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 8px 25px rgba(0, 0, 0, 0.2)';"
-                        onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 4px 15px rgba(0, 0, 0, 0.1)';">
-                            <p style="
-                                font-size: 18px;
-                                color: {subtitle_color};
-                                margin-bottom: 10px;
-                                font-family: 'Inter', sans-serif;
-                            ">{kpi_title}</p>
-                            <h3 style="
-                                font-size: 26px;
-                                color: {text_color};
-                                margin: 0;
-                                font-family: 'Inter', sans-serif;
-                                font-weight: bold;
-                            ">{kpi_value}</h3>
-                        </div>
-                    """, unsafe_allow_html=True)
-
-    st.markdown("</div>", unsafe_allow_html=True)
 
 def render_plotly_glass_card(title, fig, height=620):
     """
@@ -352,53 +321,76 @@ def render_plotly_glass_card(title, fig, height=620):
         fig: The Plotly figure object
         height (int): Height of the container in pixels (default: 620)
     """
-    # Get theme to adjust text color
+    # Get theme to adjust colors
     is_dark_theme = st.get_option("theme.base") == "dark"
     text_color = "rgba(255,255,255,0.9)" if is_dark_theme else "rgba(0,0,0,0.9)"
+    border_color = "rgba(255, 255, 255, 0.3)"  # Semi-transparent white border
+    bg_color = "rgba(255, 255, 255, 0.1)"  # Semi-transparent white background
+    shadow_color = "rgba(0, 0, 0, 0.1)"  # Light shadow
+    grid_color = "rgba(255, 255, 255, 0.30)"  # Grid branco com 30% de opacidade
     
     # Update layout for better spacing and label positioning
     fig.update_layout(
-        margin=dict(l=80, r=20, t=40, b=80),  # Increased bottom margin
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="Inter, sans-serif", size=14)
+        margin=dict(l=80, r=20, t=40, b=80),
+        paper_bgcolor=bg_color,
+        plot_bgcolor=bg_color,
+        font=dict(
+            family="Inter, sans-serif",
+            size=14,
+            color=text_color
+        )
     )
     
     # Update Y-axis properties
     fig.update_yaxes(
         automargin=True,
         ticks="outside",
-        ticklabelposition="outside left"
+        ticklabelposition="outside left",
+        gridcolor=grid_color,
+        tickcolor=text_color,
+        tickfont=dict(color=text_color)
     )
     
     # Update X-axis properties
     fig.update_xaxes(
         ticklabelposition="outside bottom",
-        ticks="outside"
+        ticks="outside",
+        gridcolor=grid_color,
+        tickcolor=text_color,
+        tickfont=dict(color=text_color)
     )
     
     # Convert Plotly figure to HTML
     html_graph = fig.to_html(full_html=False, include_plotlyjs='cdn')
     
-    # Create glass container with the graph
+    # Create glass container with the graph using the same style as kpi_card
     html_content = f"""
-    <div style="
-        backdrop-filter: blur(10px);
-        background: rgba(255, 255, 255, 0.08);
-        border-radius: 20px;
-        padding: 30px 40px;
-        margin: 20px 0;
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-        color: {text_color};
-        ">
-        <h3 style="
+    <style>
+        .plotly-glass-card {{
+            backdrop-filter: blur(10px);
+            background: {bg_color};
+            padding: 20px;
+            border-radius: 15px;
+            border: 1px solid {border_color};
+            box-shadow: 0 4px 30px {shadow_color};
+            font-family: 'Inter', sans-serif;
+        }}
+        .plotly-glass-card-title {{
             text-align: center;
             margin-bottom: 20px;
-            font-family: 'Inter', sans-serif;
-            font-size: 24px;
-            ">{title}</h3>
-        {html_graph}
+            font-size: 22px;
+            font-weight: bold;
+            color: {text_color};
+        }}
+        .plotly-glass-card-content {{
+            padding: 10px 20px;
+        }}
+    </style>
+    <div class="plotly-glass-card">
+        <div class="plotly-glass-card-title">{title}</div>
+        <div class="plotly-glass-card-content">
+            {html_graph}
+        </div>
     </div>
     """
     

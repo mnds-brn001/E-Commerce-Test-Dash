@@ -1,7 +1,14 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
-from utils.KPIs import load_data, calculate_kpis, calculate_acquisition_retention_kpis, filter_by_date_range, kpi_card, render_kpi_block, render_plotly_glass_card
+from utils.KPIs import load_data, calculate_kpis, calculate_acquisition_retention_kpis, filter_by_date_range, kpi_card, render_kpi_block, render_plotly_glass_card, render_kpi_block_title
+from utils.insights import (
+    generate_overview_insights, render_overview_insights,
+    calculate_customer_behavior_insights, render_customer_behavior_insights,
+    render_revenue_insights, render_satisfaction_insights,
+    render_delivery_insights, render_improvement_opportunities,
+    analyze_category_performance, render_category_recommendations
+)
 import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
@@ -97,31 +104,28 @@ def format_percentage(value):
 if pagina == "Visão Geral":
     st.title("Visão Geral")
     kpis = calculate_kpis(filtered_df, marketing_spend, date_range)
+    insights = generate_overview_insights(filtered_df)
     
-    # ===== SEÇÃO 1: KPIs PRINCIPAIS =====
+    # ===== SEÇÃO 1: RESUMO EXECUTIVO =====
+    st.markdown("## 📊 Resumo Executivo")
     
-    
-    # Preparar dicionário de KPIs
+    # KPIs Principais
+    render_kpi_block_title("Principais Indicadores")
     kpi_values = {
         "💰 Receita Total": f"R$ {format_value(kpis['total_revenue'])}",
         "📦 Total de Pedidos": format_value(kpis['total_orders'], is_integer=True),
-        "👥 Total de Clientes": format_value(kpis['total_customers'], is_integer=True),
-        "🎯 Taxa de Abandono": format_percentage(kpis['abandonment_rate']),
-        "😊 Satisfação do Cliente": format_value(kpis['csat']),
-        "💰 Ticket Médio": f"R$ {format_value(kpis['average_ticket'])}",
-        "📦 Tempo Médio de Entrega": f"{int(kpis['avg_delivery_time'])} dias",
-        "❌ Taxa de Cancelamento": format_percentage(kpis['cancellation_rate']),
-        "💸 Receita Perdida": f"R$ {format_value(kpis['lost_revenue'])}"
+        "👥 Total de Clientes": format_value(kpis['total_customers'], is_integer=True)
     }
+    render_kpi_block(kpi_values=kpi_values, cols_per_row=3)
     
-    # Renderizar bloco de KPIs com efeito glass
-    render_kpi_block("📊 Métricas de Performance", kpi_values, cols_per_row=3)
+    # ===== SEÇÃO 2: DESEMPENHO FINANCEIRO =====
+    st.markdown("## 💰 Desempenho Financeiro")
     
-    # ===== SEÇÃO 2: EVOLUÇÃO DA RECEITA =====
+    # Insights de Receita
+    render_revenue_insights(insights)
     
-    # Gráfico de Receita ao Longo do Tempo
-    monthly_revenue = filtered_df.groupby(filtered_df['order_purchase_timestamp'].dt.to_period('M'))['price'].sum().reset_index()
-    monthly_revenue['order_purchase_timestamp'] = monthly_revenue['order_purchase_timestamp'].astype(str)
+    # Gráfico de Evolução da Receita
+    monthly_revenue = insights['revenue']['monthly_revenue']
     fig_revenue = px.line(
         monthly_revenue,
         x='order_purchase_timestamp',
@@ -130,57 +134,32 @@ if pagina == "Visão Geral":
         labels={'price': 'Receita (R$)', 'order_purchase_timestamp': 'Mês'}
     )
     fig_revenue.update_layout(showlegend=False)
+    render_plotly_glass_card("Evolução da Receita Mensal", fig_revenue)
     
-    # Renderizar o gráfico com efeito glass
-    render_plotly_glass_card("📈 Evolução da Receita Mensal", fig_revenue)
+    # ===== SEÇÃO 3: EXPERIÊNCIA DO CLIENTE =====
+    st.markdown("## 😊 Experiência do Cliente")
     
-    # Adicionar insights sobre a receita
+    # Métricas de Experiência
+    exp_kpis = {
+        "😊 Satisfação Média": format_value(kpis['csat']),
+        "📦 Tempo de Entrega": f"{int(kpis['avg_delivery_time'])} dias",
+        "❌ Taxa de Cancelamento": format_percentage(kpis['cancellation_rate'])
+    }
+    render_kpi_block(kpi_values=exp_kpis, cols_per_row=3)
+    
+    # Insights de Satisfação e Entrega
     col1, col2 = st.columns(2)
-    
     with col1:
-        # Calcular crescimento da receita
-        if len(monthly_revenue) >= 2:
-            first_month = monthly_revenue.iloc[0]['price']
-            last_month = monthly_revenue.iloc[-1]['price']
-            growth_rate = (last_month - first_month) / first_month * 100 if first_month > 0 else 0
-            
-            st.markdown(f"""
-            <div style="
-                background-color: #f0f2f6;
-                padding: 20px;
-                border-radius: 10px;
-                margin-bottom: 20px;
-            ">
-                <h3 style="margin-top: 0;">📈 Crescimento da Receita</h3>
-                <p>De <strong>{monthly_revenue.iloc[0]['order_purchase_timestamp']}</strong> a <strong>{monthly_revenue.iloc[-1]['order_purchase_timestamp']}</strong>, 
-                a receita <strong>{'aumentou' if growth_rate > 0 else 'diminuiu'}</strong> em <strong>{format_value(abs(growth_rate))}%</strong>.</p>
-            </div>
-            """, unsafe_allow_html=True)
-    
+        render_satisfaction_insights(insights)
     with col2:
-        # Identificar mês com maior receita
-        max_month = monthly_revenue.loc[monthly_revenue['price'].idxmax()]
-        st.markdown(f"""
-        <div style="
-            background-color: #f0f2f6;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-        ">
-            <h3 style="margin-top: 0;">🏆 Melhor Mês</h3>
-            <p>O mês com maior receita foi <strong>{max_month['order_purchase_timestamp']}</strong>, 
-            com <strong>R$ {format_value(max_month['price'])}</strong>.</p>
-        </div>
-        """, unsafe_allow_html=True)
+        render_delivery_insights(insights)
     
-    # ===== SEÇÃO 3: SATISFAÇÃO E CANCELAMENTO =====
-    
+    # Gráficos de Satisfação e Cancelamento
     col1, col2 = st.columns(2)
     
     with col1:
-        # Gráfico de Satisfação do Cliente
-        monthly_satisfaction = filtered_df.groupby(filtered_df['order_purchase_timestamp'].dt.to_period('M'))['review_score'].mean().reset_index()
-        monthly_satisfaction['order_purchase_timestamp'] = monthly_satisfaction['order_purchase_timestamp'].astype(str)
+        # Gráfico de Satisfação
+        monthly_satisfaction = insights['satisfaction']['monthly_satisfaction']
         fig_satisfaction = px.line(
             monthly_satisfaction,
             x='order_purchase_timestamp',
@@ -192,31 +171,11 @@ if pagina == "Visão Geral":
             yaxis=dict(range=[0, 5]),
             showlegend=False
         )
-        
-        # Renderizar gráfico com efeito glass
-        render_plotly_glass_card("😊 Evolução da Satisfação", fig_satisfaction)
-        
-        # Adicionar insights sobre satisfação
-        avg_satisfaction = filtered_df['review_score'].mean()
-        satisfaction_distribution = filtered_df['review_score'].value_counts(normalize=True).sort_index()
-        
-        st.markdown(f"""
-        <div style="
-            background-color: #f0f2f6;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-        ">
-            <h3 style="margin-top: 0;">📊 Distribuição de Avaliações</h3>
-            <p>A nota média de satisfação é <strong>{format_value(avg_satisfaction)}</strong> em 5.</p>
-            <p><strong>{format_percentage(satisfaction_distribution.get(5, 0))}</strong> dos clientes deram nota 5.</p>
-        </div>
-        """, unsafe_allow_html=True)
+        render_plotly_glass_card("Evolução da Satisfação do Cliente", fig_satisfaction)
     
     with col2:
-        # Gráfico de Taxa de Cancelamento
-        monthly_cancellation = filtered_df.groupby(filtered_df['order_purchase_timestamp'].dt.to_period('M'))['pedido_cancelado'].mean().reset_index()
-        monthly_cancellation['order_purchase_timestamp'] = monthly_cancellation['order_purchase_timestamp'].astype(str)
+        # Gráfico de Cancelamentos
+        monthly_cancellation = insights['cancellation']['monthly_cancellation']
         fig_cancellation = px.line(
             monthly_cancellation,
             x='order_purchase_timestamp',
@@ -228,68 +187,51 @@ if pagina == "Visão Geral":
             yaxis=dict(tickformat=".1%"),
             showlegend=False
         )
-        
-        # Renderizar gráfico com efeito glass
-        render_plotly_glass_card("❌ Taxa de Cancelamento", fig_cancellation)
-        
-        # Adicionar insights sobre cancelamento
-        avg_cancellation = filtered_df['pedido_cancelado'].mean()
-        total_cancelled = filtered_df[filtered_df['pedido_cancelado'] == 1]['order_id'].nunique()
-        
-        st.markdown(f"""
-        <div style="
-            background-color: #f0f2f6;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-        ">
-            <h3 style="margin-top: 0;">❌ Impacto do Cancelamento</h3>
-            <p>A taxa média de cancelamento é <strong>{format_percentage(avg_cancellation)}</strong>.</p>
-            <p>Foram cancelados <strong>{format_value(total_cancelled, is_integer=True)}</strong> pedidos, 
-            resultando em <strong>R$ {format_value(kpis['lost_revenue'])}</strong> de receita perdida.</p>
-        </div>
-        """, unsafe_allow_html=True)
+        render_plotly_glass_card("Evolução da Taxa de Cancelamento", fig_cancellation)
     
-    # ===== SEÇÃO 4: RESUMO E INSIGHTS =====
-    st.header("💡 Insights Principais")
+    # ===== SEÇÃO 4: OPORTUNIDADES DE MELHORIA =====
+    st.markdown("## 🎯 Oportunidades de Melhoria")
     
-    col1, col2 = st.columns(2)
+    # Métricas de Atenção
+    attention_kpis = {
+        "🎯 Taxa de Abandono": format_percentage(kpis['abandonment_rate']),
+        "💸 Receita Perdida": f"R$ {format_value(kpis['lost_revenue'])}",
+        "💰 Ticket Médio": f"R$ {format_value(kpis['average_ticket'])}"
+    }
+    render_kpi_block(kpi_values=attention_kpis, cols_per_row=3)
     
-    with col1:
-        st.markdown(f"""
-        <div style="
-            background-color: #f0f2f6;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-        ">
-            <h3 style="margin-top: 0;">📊 Métricas de Negócio</h3>
-            <ul>
-                <li>Receita total: <strong>R$ {format_value(kpis['total_revenue'])}</strong></li>
-                <li>Ticket médio: <strong>R$ {format_value(kpis['average_ticket'])}</strong></li>
-                <li>Total de clientes: <strong>{format_value(kpis['total_customers'], is_integer=True)}</strong></li>
-                <li>Total de pedidos: <strong>{format_value(kpis['total_orders'], is_integer=True)}</strong></li>
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
+    # Oportunidades de Melhoria
+    render_improvement_opportunities(insights)
     
-    with col2:
-        st.markdown(f"""
-        <div style="
-            background-color: #f0f2f6;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-        ">
-            <h3 style="margin-top: 0;">🎯 Oportunidades de Melhoria</h3>
-            <ul>
-                <li>Reduzir taxa de cancelamento (atual: <strong>{format_percentage(kpis['cancellation_rate'])}</strong>)</li>
-                <li>Melhorar tempo de entrega (atual: <strong>{int(kpis['avg_delivery_time'])} dias</strong>)</li>
-                <li>Aumentar satisfação do cliente (atual: <strong>{format_value(kpis['csat'])}</strong>)</li>
-                <li>Reduzir taxa de abandono (atual: <strong>{format_percentage(kpis['abandonment_rate'])}</strong>)</li>
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
+    # ===== SEÇÃO 5: CONCLUSÕES =====
+    st.markdown("## 📝 Conclusões")
+    
+    # Criar conclusões baseadas nos insights
+    revenue = insights['revenue']
+    satisfaction = insights['satisfaction']
+    cancellation = insights['cancellation']
+    delivery = insights['delivery']
+    
+    st.markdown(f"""
+    #### Principais Conclusões:
+    
+    1. **Desempenho Financeiro** {revenue['trend_icon']}
+       - A receita está em {revenue['trend']} ({revenue['growth_rate']:.1f}%)
+       - O melhor mês registrou R$ {revenue['best_month_revenue']:,.2f}
+    
+    2. **Satisfação do Cliente** {satisfaction['trend_icon']}
+       - Satisfação média de {satisfaction['avg_satisfaction']:.1f}/5.0
+       - {(satisfaction['top_score_percentage']*100):.1f}% dos clientes deram nota máxima
+    
+    3. **Entregas e Cancelamentos**
+       - Tempo médio de entrega: {delivery['avg_delivery_time']:.1f} dias {delivery['trend_icon']}
+       - Taxa de cancelamento: {(cancellation['cancellation_rate']*100):.1f}% {cancellation['trend_icon']}
+    
+    4. **Próximos Passos**
+       - Focar na redução do tempo de entrega
+       - Trabalhar na diminuição da taxa de cancelamento
+       - Implementar programa de fidelização para aumentar o ticket médio
+    """)
 
 elif pagina == "Análise Estratégica":
     st.title("Análise Estratégica")
@@ -307,8 +249,7 @@ elif pagina == "Análise Estratégica":
     render_kpi_block("📊 Métricas Principais", main_kpis, cols_per_row=3)
     
     # ===== SEÇÃO 2: PREVISÃO DE RECEITA =====
-    st.header("🔮 Previsão de Receita")
-    
+   
     # Preparar dados para análise
     filtered_df['month'] = pd.to_datetime(filtered_df['order_purchase_timestamp']).dt.to_period('M')
     monthly_category_sales = filtered_df.groupby(['month', 'product_category_name']).agg({
@@ -467,7 +408,6 @@ elif pagina == "Análise Estratégica":
     
     with col1:
         # Sazonalidade de Vendas
-        st.subheader("📅 Sazonalidade de Vendas")
         
         # Calcular vendas por dia da semana
         filtered_df['day_of_week'] = pd.to_datetime(filtered_df['order_purchase_timestamp']).dt.day_name()
@@ -502,7 +442,7 @@ elif pagina == "Análise Estratégica":
         
         # Adicionar botões para alternar entre visualizações
         fig_seasonality.update_layout(
-            title="Sazonalidade de Vendas",
+            title=" ",
             xaxis_title="Período",
             yaxis_title="Receita (R$)",
             updatemenus=[
@@ -548,7 +488,6 @@ elif pagina == "Análise Estratégica":
     
     with col2:
         # Ticket Médio por Perfil
-        st.subheader("💵 Ticket Médio por Estado")
         
         # Calcular ticket médio por estado
         state_ticket = filtered_df.groupby('customer_state')['price'].mean().sort_values(ascending=False)
@@ -564,7 +503,7 @@ elif pagina == "Análise Estratégica":
         ))
         
         fig_ticket.update_layout(
-            title="Ticket Médio por Estado",
+            title=" ",
             xaxis_title="Estado",
             yaxis_title="Ticket Médio (R$)",
             showlegend=False
@@ -949,8 +888,9 @@ elif pagina == "Aquisição e Retenção":
         "⏳ Tempo até 2ª Compra": f"{int(acquisition_kpis['avg_time_to_second'])} dias"
     }
     
-    # Renderizar bloco de KPIs de Clientes com efeito glass
-    render_kpi_block("👥 Métricas de Clientes", customer_kpis, cols_per_row=3)
+    # Renderizar título e bloco de KPIs de Clientes com efeito glass
+    render_kpi_block_title("👥 Métricas de Clientes")
+    render_kpi_block(kpi_values=customer_kpis, cols_per_row=3)
     
     # Preparar dicionário de KPIs Financeiros
     financial_kpis = {
@@ -959,8 +899,9 @@ elif pagina == "Aquisição e Retenção":
         "⚖️ LTV/CAC": format_value(acquisition_kpis['ltv'] / acquisition_kpis['cac'] if acquisition_kpis['cac'] > 0 else 0)
     }
     
-    # Renderizar bloco de KPIs Financeiros com efeito glass
-    render_kpi_block("💰 Métricas Financeiras", financial_kpis, cols_per_row=3)
+    # Renderizar título e bloco de KPIs Financeiros com efeito glass
+    render_kpi_block_title("💰 Métricas Financeiras")
+    render_kpi_block(kpi_values=financial_kpis, cols_per_row=3)
     
     st.markdown("---")
     
@@ -992,19 +933,19 @@ elif pagina == "Aquisição e Retenção":
     
     # Determinar status e cor
     if current_ratio < 1:
-        status = "🚨 Crítico"
+        status = "Alerta Crítico 🚨"
         status_color = "#dc3545"
     elif current_ratio == 1:
-        status = "⚠️ Limite"
+        status = "Observar Insights ⚠️"
         status_color = "#ffc107"
     elif current_ratio < 3:
-        status = "😬 Razoável"
+        status = "Operando na Linha"
         status_color = "#17a2b8"
     elif current_ratio == 3:
-        status = "✅ Ideal"
+        status = "Desempenho Ideal ✅"
         status_color = "#28a745"
     else:
-        status = "💰 Alto"
+        status = "Desempenho Excelente 💰"
         status_color = "#007bff"
     
     # Determinar cor do texto baseado no tema
@@ -1150,33 +1091,42 @@ elif pagina == "Aquisição e Retenção":
                 rec_color = "#e74c3c"  # Vermelho para situação crítica
                 rec_icon = "🚨"
                 rec_status = "Situação Crítica"
+            elif current_ratio < 2:
+                recommendations = [
+                    ("📊 Otimizar CAC", "Foque em canais de aquisição mais eficientes"),
+                    ("🔄 Melhorar retenção", "Implemente programas de fidelidade básicos"),
+                    ("📈 Aumentar ticket", "Promova produtos de maior valor")
+                ]
+                rec_color = "#f39c12"  # Laranja para situação de atenção
+                rec_icon = "⚠️"
+                rec_status = "Necessita Melhorias"
             elif current_ratio < 3:
                 recommendations = [
-                    ("🔍 Testar novos canais", "Explore canais com potencial de menor CAC"),
-                    ("🔄 Melhorar retenção", "Implemente programas de fidelidade para aumentar o LTV"),
-                    ("⚡ Otimizar funil", "Identifique e corrija gargalos no processo de aquisição")
+                    ("📈 Refinar CAC", "Identifique e elimine desperdícios nos canais atuais"),
+                    ("💎 Premiumização", "Desenvolva ofertas de maior valor agregado"),
+                    ("🔄 Programas de fidelidade", "Implemente estratégias avançadas de retenção")
                 ]
-                rec_color = "#f1c40f"  # Amarelo para situação de atenção
-                rec_icon = "⚠️"
-                rec_status = "Necessita Atenção"
-            elif current_ratio > 5:
+                rec_color = "#f1c40f"  # Amarelo para situação razoável
+                rec_icon = "😬"
+                rec_status = "Próximo do Ideal"
+            elif current_ratio == 3:
                 recommendations = [
-                    ("📈 Aumentar marketing", "Você pode estar subinvestindo em crescimento"),
-                    ("🌍 Expandir mercados", "Aproveite a eficiência atual para escalar o negócio"),
-                    ("🔄 Diversificar canais", "Explore novos canais para manter a eficiência")
-                ]
-                rec_color = "#3498db"  # Azul para oportunidade de crescimento
-                rec_icon = "💰"
-                rec_status = "Oportunidade de Crescimento"
-            else:
-                recommendations = [
-                    ("⚖️ Manter equilíbrio", "Continue monitorando a razão LTV/CAC"),
-                    ("📊 Testar aumentos", "Experimente aumentar o investimento em marketing"),
-                    ("🔍 Otimizar processos", "Foque em melhorias incrementais")
+                    ("⚖️ Manter equilíbrio", "Continue com as estratégias atuais"),
+                    ("📊 Monitorar métricas", "Acompanhe de perto as mudanças no CAC e LTV"),
+                    ("🔄 Otimizar processos", "Busque melhorias incrementais")
                 ]
                 rec_color = "#2ecc71"  # Verde para situação saudável
                 rec_icon = "✅"
-                rec_status = "Situação Saudável"
+                rec_status = "Situação Ideal"
+            else:
+                recommendations = [
+                    ("📈 Expandir marketing", "Aumente o investimento em canais eficientes"),
+                    ("🌍 Novos mercados", "Explore oportunidades de expansão"),
+                    ("💎 Premiumização", "Desenvolva ofertas exclusivas de alto valor")
+                ]
+                rec_color = "#3498db"  # Azul para situação excelente
+                rec_icon = "💰"
+                rec_status = "Excelente Desempenho"
             
             # Generate recommendations HTML as a separate string
             recs_html = ""
@@ -1426,105 +1376,30 @@ elif pagina == "Comportamento do Cliente":
     
     # ===== SEÇÃO 1: VISÃO GERAL =====
     # Preparar dicionário de KPIs de Cliente
+    render_kpi_block_title("👥 Métricas de Cliente")
     customer_kpis = {
         "🎯 Taxa de Abandono": format_percentage(kpis['abandonment_rate']),
         "😊 Satisfação do Cliente": format_value(kpis['csat']),
         "🔄 Taxa de Recompra": format_percentage(acquisition_kpis['repurchase_rate'])
     }
-    
-    # Renderizar bloco de KPIs de Cliente com efeito glass
-    render_kpi_block("👥 Métricas de Cliente", customer_kpis, cols_per_row=3)
+    render_kpi_block(kpi_values=customer_kpis, cols_per_row=3)
     
     # Preparar dicionário de KPIs de Tempo
+    render_kpi_block_title("⏱️ Métricas de Tempo")
     time_kpis = {
         "📦 Tempo Médio de Entrega": f"{int(kpis['avg_delivery_time'])} dias",
         "⏳ Tempo até 2ª Compra": f"{int(acquisition_kpis['avg_time_to_second'])} dias",
         "💰 Ticket Médio": f"R$ {format_value(kpis['average_ticket'])}"
     }
-    
-    # Renderizar bloco de KPIs de Tempo com efeito glass
-    render_kpi_block("⏱️ Métricas de Tempo", time_kpis, cols_per_row=3)
+    render_kpi_block(kpi_values=time_kpis, cols_per_row=3)
     
     st.markdown("---")
     
-    # ===== SEÇÃO 2: SATISFAÇÃO DO CLIENTE =====
-    st.header("😊 Satisfação do Cliente")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # Gráfico de Satisfação do Cliente ao Longo do Tempo
-        satisfaction_data = filtered_df.groupby(filtered_df['order_purchase_timestamp'].dt.to_period('M'))['review_score'].mean().reset_index()
-        satisfaction_data['order_purchase_timestamp'] = satisfaction_data['order_purchase_timestamp'].astype(str)
-        fig_satisfaction = px.line(
-            satisfaction_data,
-            x='order_purchase_timestamp',
-            y='review_score',
-            title=" ",
-            labels={'review_score': 'Nota Média', 'order_purchase_timestamp': 'Mês'}
-        )
-        fig_satisfaction.update_layout(
-            yaxis=dict(range=[0, 5]),
-            showlegend=False
-        )
-        
-        # Renderizar gráfico com efeito glass
-        render_plotly_glass_card("📈 Evolução da Satisfação", fig_satisfaction)
-        
-        # Insights sobre satisfação
-        avg_satisfaction = filtered_df['review_score'].mean()
-        satisfaction_distribution = filtered_df['review_score'].value_counts(normalize=True).sort_index()
-        
-        st.markdown(f"""
-        <div style="
-            background-color: #f0f2f6;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-        ">
-            <h3 style="margin-top: 0;">📊 Distribuição de Avaliações</h3>
-            <p>A nota média de satisfação é <strong>{format_value(avg_satisfaction)}</strong> em 5.</p>
-            <p><strong>{format_percentage(satisfaction_distribution.get(5, 0))}</strong> dos clientes deram nota 5.</p>
-            <p><strong>{format_percentage(satisfaction_distribution.get(1, 0))}</strong> dos clientes deram nota 1.</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        # Gráfico de Distribuição de Satisfação
-        fig_dist = px.histogram(
-            filtered_df,
-            x='review_score',
-            title=" ",
-            labels={'review_score': 'Nota', 'count': 'Quantidade de Avaliações'}
-        )
-        fig_dist.update_layout(
-            xaxis=dict(range=[0, 5]),
-            showlegend=False
-        )
-        
-        # Renderizar gráfico com efeito glass
-        render_plotly_glass_card("📊 Distribuição de Satisfação", fig_dist)
-        
-        # Análise de correlação entre satisfação e outras métricas
-        st.markdown(f"""
-        <div style="
-            background-color: #f0f2f6;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-        ">
-            <h3 style="margin-top: 0;">🔍 Correlações</h3>
-            <p>Analisando a relação entre satisfação e outras métricas:</p>
-            <ul>
-                <li>Clientes mais satisfeitos tendem a ter um ticket médio <strong>{'maior' if filtered_df.groupby('review_score')['price'].mean().corr(pd.Series([1,2,3,4,5])) > 0 else 'menor'}</strong></li>
-                <li>Clientes com notas mais baixas têm uma taxa de recompra <strong>{'menor' if filtered_df.groupby('review_score')['customer_unique_id'].nunique().corr(pd.Series([1,2,3,4,5])) > 0 else 'maior'}</strong></li>
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    st.markdown("---")
+    # ===== SEÇÃO 2: ANÁLISE DETALHADA =====
+    render_customer_behavior_insights(filtered_df)
     
     # ===== SEÇÃO 3: ANÁLISE DE TEXTOS DAS AVALIAÇÕES =====
+    st.markdown("---")
     st.header("📝 Análise de Textos das Avaliações")
     
     # Realizar análise NLP
@@ -1585,24 +1460,22 @@ elif pagina == "Comportamento do Cliente":
     st.markdown("---")
     
     # Preparar dicionário de KPIs de Análise de Texto
+    render_kpi_block_title("📊 Métricas Gerais")
     text_analysis_kpis = {
         "📊 Total de Avaliações Positivas": nlp_results['metrics']['positive_count'],
         "📊 Total de Avaliações Neutras": nlp_results['metrics']['neutral_count'],
         "📊 Total de Avaliações Negativas": nlp_results['metrics']['negative_count']
     }
-    
-    # Renderizar bloco de KPIs de Análise de Texto com efeito glass
-    render_kpi_block("📊 Métricas Gerais", text_analysis_kpis, cols_per_row=3)
+    render_kpi_block(kpi_values=text_analysis_kpis, cols_per_row=3)
     
     # Preparar dicionário de KPIs de Tamanho Médio
+    render_kpi_block_title("📏 Tamanho Médio das Avaliações")
     length_kpis = {
         "📏 Tamanho Médio (Positivas)": f"{int(nlp_results['metrics']['avg_positive_length'])} caracteres",
         "📏 Tamanho Médio (Neutras)": f"{int(nlp_results['metrics']['avg_neutral_length'])} caracteres",
         "📏 Tamanho Médio (Negativas)": f"{int(nlp_results['metrics']['avg_negative_length'])} caracteres"
     }
-    
-    # Renderizar bloco de KPIs de Tamanho Médio com efeito glass
-    render_kpi_block("📏 Tamanho Médio das Avaliações", length_kpis, cols_per_row=3)
+    render_kpi_block(kpi_values=length_kpis, cols_per_row=3)
     
     # Proporções
     st.markdown("---")
@@ -1612,14 +1485,13 @@ elif pagina == "Comportamento do Cliente":
                     nlp_results['metrics']['negative_count'])
     
     # Preparar dicionário de KPIs de Proporções
+    render_kpi_block_title("📈 Distribuição das Avaliações")
     proportion_kpis = {
         "📈 Proporção Positivas": f"{(nlp_results['metrics']['positive_count'] / total_reviews):.1%}",
         "📈 Proporção Neutras": f"{(nlp_results['metrics']['neutral_count'] / total_reviews):.1%}",
         "📈 Proporção Negativas": f"{(nlp_results['metrics']['negative_count'] / total_reviews):.1%}"
     }
-    
-    # Renderizar bloco de KPIs de Proporções com efeito glass
-    render_kpi_block("📈 Distribuição das Avaliações", proportion_kpis, cols_per_row=3)
+    render_kpi_block(kpi_values=proportion_kpis, cols_per_row=3)
 
 elif pagina == "Produtos e Categorias":
     st.title("Produtos e Categorias")
@@ -1665,15 +1537,14 @@ elif pagina == "Produtos e Categorias":
     
     # 📊 Visão Geral
     # Preparar dicionário de KPIs principais
+    render_kpi_block_title("📊 Visão Geral")
     main_kpis = {
-        "📦 Total de Produtos": format_value(filtered_df['product_id'].nunique(), is_integer=True),
-        "🏷️ Categorias": format_value(filtered_df['product_category_name'].nunique(), is_integer=True),
-        "💰 Ticket Médio": f"R$ {format_value(avg_ticket)}",
-        "📈 Receita Total": f"R$ {format_value(total_revenue)}"
+        "💰 Receita Total": f"R$ {format_value(kpis['total_revenue'])}",
+        "📦 Total de Pedidos": format_value(kpis['total_orders']),
+        "👥 Total de Clientes": format_value(kpis['total_customers']),
+        "📊 Ticket Médio": f"R$ {format_value(kpis['average_ticket'])}"
     }
-    
-    # Renderizar bloco de KPIs principais com efeito glass
-    render_kpi_block("📊 Visão Geral", main_kpis, cols_per_row=4)
+    render_kpi_block(kpi_values=main_kpis, cols_per_row=4)
     
     # Adicionar informação sobre o filtro ativo
     if "Todas as categorias" not in selected_categorias:
@@ -1750,129 +1621,130 @@ elif pagina == "Produtos e Categorias":
         # Renderizar gráfico com efeito glass
         render_plotly_glass_card("❌ Taxa de Cancelamento por Categoria", fig_cancellation)
     
+    # Análise de Categorias
+    render_kpi_block_title("📦 Análise de Categorias")
+    
+    # Calcular análise de categorias
+    category_analysis = analyze_category_performance(df)
+    
+    # Renderizar recomendações
+    render_category_recommendations(category_analysis)
+
     st.markdown("---")
     
-    # 🔍 Análise Detalhada
-    st.header("🔍 Análise Detalhada")
-    
-    # Preparar dados para análise temporal
-    filtered_df['month'] = pd.to_datetime(filtered_df['order_purchase_timestamp']).dt.to_period('M')
-    monthly_data = filtered_df.groupby(['month', 'product_category_name']).agg({
-        'price': 'sum',
-        'order_id': 'count',
+    # Calcular métricas por produto
+    product_metrics = filtered_df.groupby(['product_id', 'product_category_name']).agg({
+        'price': ['sum', 'mean', 'count'],
+        'review_score': 'mean',
         'pedido_cancelado': 'mean'
     }).reset_index()
     
-    # Converter Period para string para evitar problemas de serialização JSON
-    monthly_data['month_str'] = monthly_data['month'].astype(str)
+    # Renomear colunas
+    product_metrics.columns = ['product_id', 'category', 'total_revenue', 'avg_price', 'total_sales', 'avg_rating', 'cancel_rate']
     
-    # Selecionar categoria para análise
-    # Tratar valores None antes de ordenar
-    category_options = filtered_df['product_category_name'].unique()
-    category_options = [cat if cat is not None else "Categoria não especificada" for cat in category_options]
-    category_options = sorted(category_options)
-    
-    selected_category = st.selectbox(
-        "Selecione uma categoria para análise detalhada:",
-        options=category_options
+    # Calcular score composto para ranking
+    product_metrics['composite_score'] = (
+        0.4 * (product_metrics['total_revenue'] / product_metrics['total_revenue'].max()) +
+        0.3 * (product_metrics['total_sales'] / product_metrics['total_sales'].max()) +
+        0.2 * (product_metrics['avg_rating'] / 5) +
+        0.1 * (1 - product_metrics['cancel_rate'])
     )
     
-    # Filtrar dados para a categoria selecionada
-    # Se a categoria selecionada for "Categoria não especificada", filtrar por None
-    if selected_category == "Categoria não especificada":
-        category_data = monthly_data[monthly_data['product_category_name'].isna()]
-    else:
-        category_data = monthly_data[monthly_data['product_category_name'] == selected_category]
+    # Identificar top produtos
+    top_products = product_metrics.nlargest(5, 'composite_score')
     
-    # Gráficos de análise temporal
-    col1, col2 = st.columns(2)
+    # Preparar KPIs para produtos em destaque
+    top_product_kpis = {}
+    for _, product in top_products.iterrows():
+        top_product_kpis[f"🏆 {product['category']}"] = f"""
+        <ul style="list-style-type: none; padding-left: 0; margin: 0; line-height: 1.5;">
+            <li>Receita: R$ {format_value(product['total_revenue'])}</li>
+            <li>Vendas: {format_value(product['total_sales'], is_integer=True)} unidades</li>
+            <li>Avaliação: {format_value(product['avg_rating'])}/5.0</li>
+            <li>Preço Médio: R$ {format_value(product['avg_price'])}</li>
+        </ul>
+        """
     
-    with col1:
-        # Evolução da Receita
-        fig_revenue = px.line(
-            category_data,
-            x='month_str',
-            y='price',
-            title=" ",
-            labels={'month_str': 'Mês', 'price': 'Receita (R$)'}
+    
+    
+    # Análise de Preço vs. Volume
+    st.subheader("📊 Análise de Preço vs. Volume de Vendas")
+    
+    fig_price_volume = go.Figure()
+    
+    # Adicionar scatter plot
+    fig_price_volume.add_trace(go.Scatter(
+        x=product_metrics['avg_price'],
+        y=product_metrics['total_sales'],
+        mode='markers',
+        marker=dict(
+            size=10,
+            color=product_metrics['avg_rating'],
+            colorscale='Viridis',
+            showscale=True,
+            colorbar=dict(title='Avaliação Média')
+        ),
+        text=product_metrics['category'],
+        hovertemplate=
+        '<b>%{text}</b><br>' +
+        'Preço Médio: R$%{x:.2f}<br>' +
+        'Vendas: %{y}<br>' +
+        '<extra></extra>'
+    ))
+    
+    fig_price_volume.update_layout(
+        xaxis_title="Preço Médio (R$)",
+        yaxis_title="Volume de Vendas",
+        showlegend=False
         )
         
         # Renderizar gráfico com efeito glass
-        render_plotly_glass_card("💰 Evolução da Receita", fig_revenue)
+    render_plotly_glass_card("📊 Relação Preço vs. Volume de Vendas", fig_price_volume)
+
+
+    # Renderizar KPIs dos produtos em destaque
+    render_kpi_block_title("🏆 Top 5 Produtos")
+    render_kpi_block(kpi_values=top_product_kpis, cols_per_row=5)
+
+
+    # Insights sobre os produtos
+    st.title("📊 Insights e Recomendações")
     
-    with col2:
-        # Evolução da Quantidade de Pedidos
-        fig_orders = px.line(
-            category_data,
-            x='month_str',
-            y='order_id',
-            title=" ",
-            labels={'month_str': 'Mês', 'order_id': 'Quantidade de Pedidos'}
-        )
-        
-        # Renderizar gráfico com efeito glass
-        render_plotly_glass_card("📦 Evolução da Quantidade de Pedidos", fig_orders)
     
-    st.markdown("---")
+
     
-    # 💡 Insights e Recomendações
-    st.header("💡 Insights e Recomendações")
+    # Calcular métricas gerais
+    avg_price_market = product_metrics['avg_price'].mean()
+    avg_rating_market = product_metrics['avg_rating'].mean()
     
-    # Calcular métricas para insights
-    category_metrics = filtered_df.groupby('product_category_name').agg({
-        'price': ['sum', 'mean', 'std'],
-        'order_id': 'count',
-        'pedido_cancelado': 'mean',
-        'review_score': 'mean'
-    }).round(2)
+    # Identificar produtos premium (alto preço, alta avaliação)
+    premium_products = product_metrics[
+        (product_metrics['avg_price'] > avg_price_market) &
+        (product_metrics['avg_rating'] > avg_rating_market)
+    ]
     
-    # Identificar categorias com melhor desempenho
-    top_categories = category_metrics.nlargest(3, ('price', 'sum'))
-    bottom_categories = category_metrics.nsmallest(3, ('price', 'sum'))
+    # Identificar produtos populares (alto volume, preço acessível)
+    popular_products = product_metrics[
+        (product_metrics['total_sales'] > product_metrics['total_sales'].mean()) &
+        (product_metrics['avg_price'] <= avg_price_market)
+    ]
     
-    col1, col2 = st.columns(2)
+    st.markdown(f"""
+    #### 📈 Análise de Mercado
     
-    with col1:
-        # Preparar dicionário de KPIs para categorias em destaque
-        top_category_kpis = {}
-        for idx, (category, metrics) in enumerate(top_categories.iterrows(), 1):
-            top_category_kpis[f"🌟 {idx}. {category}"] = f"""
-            <ul style="list-style-type: none; padding-left: 0; margin: 0; line-height: 1.5;">
-                <li>Receita: R$ {format_value(metrics[('price', 'sum')])}</li>
-                <li>Ticket: R$ {format_value(metrics[('price', 'mean')])}</li>
-                <li>Pedidos: {format_value(metrics[('order_id', 'count')], is_integer=True)}</li>
-                <li>Cancelamento: {format_percentage(metrics[('pedido_cancelado', 'mean')])}</li>
-            </ul>
-            """
-        
-        # Renderizar bloco de KPIs de categorias em destaque com efeito glass
-        render_kpi_block("🌟 Categorias em Destaque", top_category_kpis, cols_per_row=1)
+    1. **Produtos Premium** (Alto preço, Alta avaliação)
+       - {len(premium_products)} produtos identificados
+       - Preço médio: R$ {format_value(premium_products['avg_price'].mean())}
+       - Avaliação média: {format_value(premium_products['avg_rating'].mean())}/5.0
     
-    with col2:
-        # Preparar dicionário de KPIs para categorias que precisam de atenção
-        bottom_category_kpis = {}
-        for idx, (category, metrics) in enumerate(bottom_categories.iterrows(), 1):
-            bottom_category_kpis[f"⚠️ {idx}. {category}"] = f"""
-            <ul style="list-style-type: none; padding-left: 0; margin: 0; line-height: 1.5;">
-                <li>Receita: R$ {format_value(metrics[('price', 'sum')])}</li>
-                <li>Ticket: R$ {format_value(metrics[('price', 'mean')])}</li>
-                <li>Pedidos: {format_value(metrics[('order_id', 'count')], is_integer=True)}</li>
-                <li>Cancelamento: {format_percentage(metrics[('pedido_cancelado', 'mean')])}</li>
-            </ul>
-            """
-        
-        # Renderizar bloco de KPIs de categorias que precisam de atenção com efeito glass
-        render_kpi_block("⚠️ Categorias que Precisam de Atenção", bottom_category_kpis, cols_per_row=1)
+    2. **Produtos Populares** (Alto volume, Preço acessível)
+       - {len(popular_products)} produtos identificados
+       - Volume médio: {format_value(popular_products['total_sales'].mean(), is_integer=True)} unidades
+       - Preço médio: R$ {format_value(popular_products['avg_price'].mean())}
     
-    # Espaço para futuras análises
-    st.markdown("---")
-    st.header("🔮 Análises Futuras")
-    st.info("""
-    Área reservada para futuras análises:
-    - Análise de sazonalidade por categoria
-    - Correlação entre preço e satisfação
-    - Análise de estoque e demanda
-    - Previsão de vendas por categoria
+    3. **Métricas de Mercado**
+       - Preço médio do mercado: R$ {format_value(avg_price_market)}
+       - Avaliação média do mercado: {format_value(avg_rating_market)}/5.0
     """)
 
 elif pagina == "Análise de Churn":

@@ -627,173 +627,110 @@ def app():
             col1, col2 = st.columns([2, 1])
             
             with col1:
-                st.subheader("📊 Prever Churn para Novos Clientes")
-                
-                # Formulário para entrada de dados
-                with st.form("prediction_form"):
-                    # Carregar o modelo e o scaler
-                    with open('models/churn_model.pkl', 'rb') as f:
-                        model = pickle.load(f)
-                    
-                    with open('models/churn_scaler.pkl', 'rb') as f:
-                        scaler = pickle.load(f)
-                    
-                    with open('models/churn_feature_columns.pkl', 'rb') as f:
-                        feature_columns = pickle.load(f)
-                    
-                    # Criar campos para entrada de dados
-                    st.markdown("""
-                    <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-                        <p>Preencha os dados do cliente para prever a probabilidade de churn.</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    # Criar campos para as features
-                    input_data = {}
-                    
-                    # Dividir em duas colunas para melhor organização
+                st.subheader("📊 Previsão de Churn")
+                with st.form("churn_prediction_form"):
                     col1, col2 = st.columns(2)
                     
                     with col1:
-                        # Primeira metade das features
-                        for i, feature in enumerate(feature_columns[:len(feature_columns)//2]):
-                            if feature == 'recency':
-                                input_data[feature] = st.number_input(
-                                    f"Dias desde a última compra ({feature})",
-                                    min_value=0,
-                                    max_value=365,
-                                    value=30
-                                )
-                            elif feature == 'cancel_rate':
-                                input_data[feature] = st.slider(
-                                    f"Taxa de cancelamento ({feature})",
-                                    min_value=0.0,
-                                    max_value=1.0,
-                                    value=0.1,
-                                    step=0.05
-                                )
-                            else:
-                                input_data[feature] = st.number_input(
-                                    f"Valor para {feature}",
-                                    value=0.0
-                                )
+                        # Dados do Cliente
+                        st.markdown("**Dados do Cliente**")
+                        customer_id = st.text_input("ID do Cliente", value="", help="Digite o ID do cliente para análise")
+                        customer_state = st.selectbox("Estado", options=df['customer_state'].unique(), help="Selecione o estado do cliente")
+                        customer_city = st.text_input("Cidade", value="", help="Digite a cidade do cliente")
+                        
+                        # Dados de Compras
+                        st.markdown("**Dados de Compras**")
+                        total_orders = st.number_input("Total de Pedidos", min_value=0, value=1, help="Número total de pedidos do cliente")
+                        total_spent = st.number_input("Valor Total Gasto (R$)", min_value=0.0, value=0.0, help="Valor total gasto pelo cliente")
+                        avg_ticket = st.number_input("Ticket Médio (R$)", min_value=0.0, value=0.0, help="Valor médio dos pedidos")
                     
                     with col2:
-                        # Segunda metade das features
-                        for i, feature in enumerate(feature_columns[len(feature_columns)//2:]):
-                            if feature == 'recency':
-                                input_data[feature] = st.number_input(
-                                    f"Dias desde a última compra ({feature})",
-                                    min_value=0,
-                                    max_value=365,
-                                    value=30
-                                )
-                            elif feature == 'cancel_rate':
-                                input_data[feature] = st.slider(
-                                    f"Taxa de cancelamento ({feature})",
-                                    min_value=0.0,
-                                    max_value=1.0,
-                                    value=0.1,
-                                    step=0.05
-                                )
-                            else:
-                                input_data[feature] = st.number_input(
-                                    f"Valor para {feature}",
-                                    value=0.0
-                                )
+                        # Dados de Satisfação
+                        st.markdown("**Dados de Satisfação**")
+                        avg_review_score = st.slider("Nota Média de Avaliação", min_value=1.0, max_value=5.0, value=3.0, step=0.1, help="Nota média das avaliações do cliente")
+                        review_count = st.number_input("Número de Avaliações", min_value=0, value=0, help="Total de avaliações feitas pelo cliente")
+                        
+                        # Dados de Tempo
+                        st.markdown("**Dados de Tempo**")
+                        days_since_last_purchase = st.number_input("Dias desde a Última Compra", min_value=0, value=0, help="Número de dias desde a última compra")
+                        avg_delivery_time = st.number_input("Tempo Médio de Entrega (dias)", min_value=0, value=0, help="Tempo médio de entrega dos pedidos")
                     
-                    # Botão para fazer a previsão
-                    predict_button = st.form_submit_button("🔮 Prever Probabilidade de Churn")
+                    # Botão de previsão
+                    predict_button = st.form_submit_button("Prever Risco de Churn")
                 
+                # Se o botão foi pressionado, fazer a previsão
                 if predict_button:
-                    # Criar DataFrame com os dados de entrada
-                    input_df = pd.DataFrame([input_data])
+                    # Criar DataFrame com os dados do formulário
+                    input_data = pd.DataFrame({
+                        'customer_state': [customer_state],
+                        'total_orders': [total_orders],
+                        'total_spent': [total_spent],
+                        'avg_ticket': [avg_ticket],
+                        'avg_review_score': [avg_review_score],
+                        'review_count': [review_count],
+                        'days_since_last_purchase': [days_since_last_purchase],
+                        'avg_delivery_time': [avg_delivery_time]
+                    })
                     
-                    # Verificar se todas as features necessárias estão presentes
-                    missing_features = [col for col in feature_columns if col not in input_df.columns]
-                    if missing_features:
-                        st.error(f"Faltam as seguintes features: {missing_features}")
+                    # Fazer a previsão
+                    prediction = model.predict_proba(input_data)[0][1]
+                    
+                    # Determinar o nível de risco
+                    if prediction < 0.3:
+                        risk_level = "Baixo"
+                        risk_color = "#2ecc71"  # Verde
+                        risk_icon = "🟢"
+                    elif prediction < 0.7:
+                        risk_level = "Moderado"
+                        risk_color = "#f1c40f"  # Amarelo
+                        risk_icon = "🟡"
                     else:
-                        # Garantir que as colunas estão na mesma ordem que o modelo espera
-                        input_df = input_df[feature_columns]
-                        
-                        # Aplicar o scaler
-                        input_scaled = scaler.transform(input_df)
-                        
-                        # Fazer a previsão
-                        prediction_proba = model.predict_proba(input_scaled)[0]
-                        churn_probability = prediction_proba[1]  # Probabilidade de churn (classe 1)
-                        
-                        # Exibir o resultado
-                        st.subheader("📊 Resultado da Previsão")
-                        
-                        # Criar um medidor visual para a probabilidade
-                        fig = go.Figure(go.Indicator(
-                            mode = "gauge+number",
-                            value = churn_probability * 100,
-                            domain = {'x': [0, 1], 'y': [0, 1]},
-                            title = {'text': "Probabilidade de Churn (%)"},
-                            gauge = {
-                                'axis': {'range': [0, 100]},
-                                'bar': {'color': "darkred"},
-                                'steps': [
-                                    {'range': [0, 30], 'color': "lightgreen"},
-                                    {'range': [30, 70], 'color': "yellow"},
-                                    {'range': [70, 100], 'color': "red"}
-                                ],
-                                'threshold': {
-                                    'line': {'color': "black", 'width': 4},
-                                    'thickness': 0.75,
-                                    'value': churn_probability * 100
-                                }
-                            }
-                        ))
-                        
-                        st.plotly_chart(fig, use_container_width=True)
-                        
-                        # Exibir recomendação baseada na probabilidade
-                        if churn_probability < 0.3:
-                            st.success(f"✅ Baixa probabilidade de churn ({churn_probability:.2%}). Este cliente provavelmente continuará comprando.")
-                        elif churn_probability < 0.7:
-                            st.warning(f"⚠️ Probabilidade moderada de churn ({churn_probability:.2%}). Considere ações de retenção preventiva.")
-                        else:
-                            st.error(f"❌ Alta probabilidade de churn ({churn_probability:.2%}). Ações imediatas de retenção são recomendadas.")
-            
-            with col2:
-                st.subheader("ℹ️ Sobre a Previsão")
-                
-                st.markdown("""
-                <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-                    <h4>Como interpretar os resultados</h4>
-                    <p>A previsão fornece a probabilidade de um cliente abandonar o serviço (churn).</p>
-                    <ul>
-                        <li><strong>Baixa probabilidade (< 30%):</strong> Cliente com baixo risco de churn</li>
-                        <li><strong>Probabilidade moderada (30-70%):</strong> Cliente com risco médio de churn</li>
-                        <li><strong>Alta probabilidade (> 70%):</strong> Cliente com alto risco de churn</li>
-                    </ul>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                st.subheader("🎯 Ações Recomendadas")
-                
-                st.markdown("""
-                <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-                    <h4>Para clientes com alto risco de churn:</h4>
-                    <ul>
-                        <li>Ofertas personalizadas de desconto</li>
-                        <li>Programas de fidelidade específicos</li>
-                        <li>Contato proativo da equipe de suporte</li>
-                        <li>Recomendações personalizadas de produtos</li>
-                    </ul>
+                        risk_level = "Alto"
+                        risk_color = "#e74c3c"  # Vermelho
+                        risk_icon = "🔴"
                     
-                    <h4>Para clientes com risco moderado:</h4>
-                    <ul>
-                        <li>Lembretes de produtos relacionados</li>
-                        <li>Newsletters personalizadas</li>
-                        <li>Programas de pontos ou cashback</li>
-                    </ul>
-                </div>
-                """, unsafe_allow_html=True)
+                    # Layout em duas colunas para resultados e recomendações
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        # Bloco de probabilidade com efeito glass
+                        st.markdown(f"""
+                        <div style='
+                            backdrop-filter: blur(10px);
+                            background: rgba(255,255,255,0.08);
+                            border-radius: 20px;
+                            padding: 25px;
+                            margin: 30px 0;
+                            border: 1px solid {risk_color};
+                            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+                            text-align: center;
+                        '>
+                            <h3 style="margin-top: 0;">Nível de Risco</h3>
+                            <div style="font-size: 24px; margin: 20px 0;">
+                                {risk_icon} <strong style="color: {risk_color};">{risk_level}</strong>
+                            </div>
+                            <div style="font-size: 18px;">
+                                Probabilidade de Churn: <strong>{prediction:.1%}</strong>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    with col2:
+                        # Bloco de recomendações com efeito glass
+                        st.markdown(f"""
+                        <div style='
+                            backdrop-filter: blur(10px);
+                            background: rgba(255,255,255,0.08);
+                            border-radius: 20px;
+                            padding: 25px;
+                            margin: 30px 0;
+                            border: 1px solid rgba(255,255,255,0.3);
+                            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+                        '>
+                            <h3 style="margin-top: 0;">🎯 Ações Recomendadas</h3>
+                            {alto_risco_html if risk_level == "Alto" else moderado_risco_html if risk_level == "Moderado" else baixo_risco_html}
+                        </div>
+                        """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     app() 
