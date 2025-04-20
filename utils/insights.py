@@ -417,10 +417,10 @@ def render_insight_card(title: str, value: str, trend: str, trend_icon: str, hel
         box-shadow: 0 4px 30px {shadow_color};
         margin-bottom: 15px;
         ">
-        <div style="font-size: 18px; color: {text_color}; margin-bottom: 10px;">
+        <div style="font-size: 18px; margin-bottom: 10px;">
             {title}
         </div>
-        <div style="font-size: 24px; font-weight: bold; color: {text_color}; margin-bottom: 10px;">
+        <div style="font-size: 24px; font-weight: bold; margin-bottom: 10px;">
             {value}
         </div>
         <div style="
@@ -433,7 +433,7 @@ def render_insight_card(title: str, value: str, trend: str, trend_icon: str, hel
             <span style="margin-right: 5px;">{trend_icon}</span>
             <span>{trend}</span>
         </div>
-        {f'<div style="font-size: 14px; color: {text_color}; margin-top: 10px; opacity: 0.8;">{help_text}</div>' if help_text else ''}
+        {f'<div style="font-size: 14px; margin-top: 10px; opacity: 0.8;">{help_text}</div>' if help_text else ''}
     </div>
     """
     return html

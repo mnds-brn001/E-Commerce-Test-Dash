@@ -906,7 +906,7 @@ elif pagina == "Aquisição e Retenção":
     st.markdown("---")
     
     # 📈 Análise LTV/CAC
-    st.header("📈 Análise LTV/CAC")
+    #st.header("📈 Análise LTV/CAC")
     
     # Calcular LTV e CAC por mês
     monthly_metrics = filtered_df.groupby(filtered_df['order_purchase_timestamp'].dt.to_period('M')).agg({
@@ -934,19 +934,19 @@ elif pagina == "Aquisição e Retenção":
     # Determinar status e cor
     if current_ratio < 1:
         status = "Alerta Crítico 🚨"
-        status_color = "#dc3545"
-    elif current_ratio == 1:
+        status_color = "#dc3545"  # Vermelho para situação crítica
+    elif current_ratio < 2:
         status = "Observar Insights ⚠️"
-        status_color = "#ffc107"
-    elif current_ratio < 3:
+        status_color = "#ffc107"  # Amarelo para situação de atenção
+    elif current_ratio < 2.85:
         status = "Operando na Linha"
-        status_color = "#17a2b8"
-    elif current_ratio == 3:
+        status_color = "#17a2b8"  # Azul claro para situação razoável
+    elif 2.85 <= current_ratio <= 3.15:
         status = "Desempenho Ideal ✅"
-        status_color = "#28a745"
+        status_color = "#28a745"  # Verde para situação ideal
     else:
         status = "Desempenho Excelente 💰"
-        status_color = "#007bff"
+        status_color = "#007bff"  # Azul para situação excelente
     
     # Determinar cor do texto baseado no tema
     is_dark_theme = st.get_option("theme.base") == "dark"
@@ -1072,12 +1072,11 @@ elif pagina == "Aquisição e Retenção":
                 margin: 20px 0;
                 border: 1px solid {status_color};
                 box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-                color: {text_color};
                 text-align: center;
             ">
-                <h3 style="margin-top: 0; color: {text_color};">Status Atual</h3>
+                <h3 style="margin-top: 0;">Status Atual</h3>
                 <p style="font-size: 24px; font-weight: bold; color: {status_color};">{status}</p>
-                <p style="font-size: 18px;">Razão LTV/CAC: {format_value(current_ratio)}</p>
+                <p style="font-size: 18px; color: {status_color};">Razão LTV/CAC: {format_value(current_ratio)}</p>
             </div>
             """, unsafe_allow_html=True)
             
@@ -1100,7 +1099,7 @@ elif pagina == "Aquisição e Retenção":
                 rec_color = "#f39c12"  # Laranja para situação de atenção
                 rec_icon = "⚠️"
                 rec_status = "Necessita Melhorias"
-            elif current_ratio < 3:
+            elif current_ratio < 2.85:
                 recommendations = [
                     ("📈 Refinar CAC", "Identifique e elimine desperdícios nos canais atuais"),
                     ("💎 Premiumização", "Desenvolva ofertas de maior valor agregado"),
@@ -1109,7 +1108,7 @@ elif pagina == "Aquisição e Retenção":
                 rec_color = "#f1c40f"  # Amarelo para situação razoável
                 rec_icon = "😬"
                 rec_status = "Próximo do Ideal"
-            elif current_ratio == 3:
+            elif 2.85 <= current_ratio <= 3.15:
                 recommendations = [
                     ("⚖️ Manter equilíbrio", "Continue com as estratégias atuais"),
                     ("📊 Monitorar métricas", "Acompanhe de perto as mudanças no CAC e LTV"),
@@ -1134,7 +1133,7 @@ elif pagina == "Aquisição e Retenção":
                 recs_html += (
                     f"<li style='margin-bottom: 15px;'>"
                     f"<strong style='color: {rec_color};'>{title}:</strong> "
-                    f"<span style='color: {text_color};'>{desc}</span>"
+                    f"<span>{desc}</span>"
                     f"</li>"
                 )
             
@@ -1148,7 +1147,6 @@ elif pagina == "Aquisição e Retenção":
                 "margin: 30px 0;"
                 f"border: 1px solid {rec_color};"
                 f"box-shadow: 0 4px 20px rgba(0,0,0,0.1);"
-                f"color: {text_color};"
                 "'>"
                 "<div style='"
                 "display: flex;"
@@ -1157,7 +1155,7 @@ elif pagina == "Aquisição e Retenção":
                 "padding-bottom: 15px;"
                 f"border-bottom: 1px solid {rec_color};"
                 "'>"
-                f"<h3 style='margin: 0; color: {text_color};'>🎯 Ações Recomendadas</h3>"
+                f"<h3 style='margin: 0;'>🎯 Ações Recomendadas</h3>"
                 f"<div style='margin-left: auto; padding: 5px 12px; background: rgba({rec_color.replace('#', '')}, 0.1); border-radius: 15px; border: 1px solid {rec_color};'>"
                 f"<span style='color: {rec_color};'>{rec_icon} {rec_status}</span>"
                 "</div></div>"
@@ -1170,8 +1168,16 @@ elif pagina == "Aquisição e Retenção":
         
         with col2:
             # Passo 1: Criar a tabela do guia como string separada
-            guide_table = """
-            <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.2);">
+            guide_table = f"""
+            <div style="
+                backdrop-filter: blur(10px);
+                background: rgba(255, 255, 255, 0.08);
+                border-radius: 20px;
+                padding: 25px;
+                margin-bottom: 20px;
+                border: 1px solid rgba(255,255,255,0.3);
+                box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+            ">
                 <h3 style="margin-top: 0;">📋 Guia de Interpretação: LTV/CAC</h3>
                 <table style="width: 100%; border-collapse: collapse; font-size: 1.05em;">
                     <thead>
@@ -1183,56 +1189,67 @@ elif pagina == "Aquisição e Retenção":
                     </thead>
                     <tbody>
                         <tr><td>&lt; 1</td><td>Você perde dinheiro por cliente</td><td style="color: #e74c3c;">🚨 Ruim</td></tr>
-                        <tr><td>= 1</td><td>Você empata</td><td style="color: #f39c12;">⚠️ Limite</td></tr>
-                        <tr><td>1 &lt; x &lt; 3</td><td>Lucro baixo</td><td style="color: #f1c40f;">😬 Razoável</td></tr>
-                        <tr><td>= 3</td><td>Ponto ideal (clássico)</td><td style="color: #2ecc71;">✅ Saudável</td></tr>
-                        <tr><td>&gt; 3</td><td>Lucro alto</td><td style="color: #3498db;">💰 Excelente</td></tr>
+                        <tr><td>1 a 2</td><td>Lucro muito baixo</td><td style="color: #f39c12;">⚠️ Limite</td></tr>
+                        <tr><td>2 a 2.85</td><td>Lucro baixo</td><td style="color: #f1c40f;">😬 Razoável</td></tr>
+                        <tr><td>2.85 a 3.15</td><td>Ponto ideal (clássico)</td><td style="color: #2ecc71;">✅ Saudável</td></tr>
+                        <tr><td>&gt; 3.15</td><td>Lucro alto</td><td style="color: #3498db;">💰 Excelente</td></tr>
                     </tbody>
                 </table>
             </div>
             """
             
-            # Passo 2: Montar o bloco de tendência como string segura
-            trend_card = f"""
+            # Passo 2: Montar os blocos de análise como string segura
+            analysis_blocks = f"""
             <div style="
-                backdrop-filter: blur(10px);
-                background: rgba(255, 255, 255, 0.08);
-                border-radius: 20px;
-                padding: 25px;
-                margin: 20px 0;
-                border: 1px solid rgba(255,255,255,0.3);
-                box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-                color: {text_color};
+                display: flex;
+                gap: 20px;
+                margin-bottom: 20px;
             ">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
-                    <div style="flex: 1; padding-right: 20px; border-right: 1px solid rgba(255,255,255,0.2);">
-                        <h3 style="margin-top: 0;">📈 Análise de Tendência</h3>
-                        <p style="font-size: 1.1em;">{trend_icon} A razão LTV/CAC está em <strong style='color:{trend_color};'>{trend_text}</strong></p>
-                        <p style="font-size: 1.1em;">Variação de <strong>{delta_percent:+.1f}%</strong> {periodo_texto}</p>
-                    </div>
-                    <div style="flex: 1; padding-left: 20px;">
-                        <h3 style="margin-top: 0;">📊 Detalhamento da Análise</h3>
-                        <ul style="list-style-type: none; padding-left: 0; margin: 0;">
-                            <li style="margin: 8px 0;">📅 Período analisado: <strong>{start_date.strftime('%b/%Y')} a {end_date.strftime('%b/%Y')}</strong></li>
-                            <li style="margin: 8px 0;">📉 LTV/CAC médio período inicial: <strong>{format_value(older_ratio)}</strong></li>
-                            <li style="margin: 8px 0;">📈 LTV/CAC médio período recente: <strong>{format_value(recent_ratio)}</strong></li>
-                            <li style="margin: 8px 0;">📊 Meses considerados por período: <strong>{n_months}</strong></li>
-                        </ul>
-                    </div>
+                <div style="
+                    flex: 1;
+                    backdrop-filter: blur(10px);
+                    background: rgba(255, 255, 255, 0.08);
+                    border-radius: 20px;
+                    padding: 25px;
+                    border: 1px solid rgba(255,255,255,0.3);
+                    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+                ">
+                    <h3 style="margin-top: 0;">📈 Análise de Tendência</h3>
+                    <p style="font-size: 1.1em;">{trend_icon} A razão LTV/CAC está em <strong style='color:{trend_color};'>{trend_text}</strong></p>
+                    <p style="font-size: 1.1em;">Variação de <strong>{delta_percent:+.1f}%</strong> {periodo_texto}</p>
                 </div>
-                {guide_table}
+                <div style="
+                    flex: 1;
+                    backdrop-filter: blur(10px);
+                    background: rgba(255, 255, 255, 0.08);
+                    border-radius: 20px;
+                    padding: 25px;
+                    border: 1px solid rgba(255,255,255,0.3);
+                    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+                ">
+                    <h3 style="margin-top: 0;">📊 Detalhamento da Análise</h3>
+                    <ul style="list-style-type: none; padding-left: 0; margin: 0;">
+                        <li style="margin: 8px 0;">📅 Período analisado: <strong>{start_date.strftime('%b/%Y')} a {end_date.strftime('%b/%Y')}</strong></li>
+                        <li style="margin: 8px 0;">📉 LTV/CAC médio período inicial: <strong>{format_value(older_ratio)}</strong></li>
+                        <li style="margin: 8px 0;">📈 LTV/CAC médio período recente: <strong>{format_value(recent_ratio)}</strong></li>
+                        <li style="margin: 8px 0;">📊 Meses considerados por período: <strong>{n_months}</strong></li>
+                    </ul>
+                </div>
             </div>
             """
             
-            # Passo 3: Renderizar no Streamlit
-            st.markdown(trend_card, unsafe_allow_html=True)
+            # Passo 3: Combinar os elementos e renderizar
+            final_card = guide_table + analysis_blocks
+            
+            # Renderizar no Streamlit
+            st.markdown(final_card, unsafe_allow_html=True)
     else:
         st.warning("⚠️ Período insuficiente para análise de tendência (mínimo 2 meses)")
     
     st.markdown("---")
     
     # 📈 Análise de Aquisição
-    st.header("📈 Análise de Aquisição")
+    st.markdown("<h2 style='text-align: center;'>📈 Análise de Aquisição</h2>", unsafe_allow_html=True)
     
     col1, col2 = st.columns(2)
     
@@ -1341,10 +1358,9 @@ elif pagina == "Aquisição e Retenção":
             margin: 30px 0;
             border: 1px solid rgba(255, 255, 255, 0.3);
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-            color: {text_color};
         ">
-            <h3 style="margin-top: 0;color: {text_color};">🔄 Taxa de Conversão entre Etapas</h3>
-            <ul style="font-size: 1.1em;color: {text_color}; padding-left: 20px;">
+            <h3 style="margin-top: 0;">🔄 Taxa de Conversão entre Etapas</h3>
+            <ul style="font-size: 1.1em; padding-left: 20px;">
                 <li>{get_status_icon(conversion_rates['created_to_approved'])} <strong>Pedidos Criados → Aprovados:</strong> {conversion_rates['created_to_approved']:.1f}%</li>
                 <li>{get_status_icon(conversion_rates['approved_to_shipped'])} <strong>Pedidos Aprovados → Enviados:</strong> {conversion_rates['approved_to_shipped']:.1f}%</li>
                 <li>{get_status_icon(conversion_rates['shipped_to_delivered'])} <strong>Pedidos Enviados → Entregues:</strong> {conversion_rates['shipped_to_delivered']:.1f}%</li>
@@ -1356,7 +1372,6 @@ elif pagina == "Aquisição e Retenção":
                 border-left: 4px solid #00ff66;
                 border-radius: 10px;
                 font-size: 1.05em;
-                color: {text_color};
             ">
                 💡 <strong>Insight:</strong> {
                     'Funil de pedidos operando com <strong>taxas saudáveis</strong> de conversão.'
