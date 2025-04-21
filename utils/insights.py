@@ -407,8 +407,10 @@ def render_insight_card(title: str, value: str, trend: str, trend_icon: str, hel
     
     html = f"""
     <div style="
+        position: relative;
         backdrop-filter: blur(10px);
-        background: {bg_color};
+        -webkit-backdrop-filter: blur(10px);
+        background: linear-gradient(135deg, {bg_color}, rgba(255, 255, 255, 0.05));
         padding: 20px;
         border-radius: 15px;
         text-align: center;
@@ -416,11 +418,21 @@ def render_insight_card(title: str, value: str, trend: str, trend_icon: str, hel
         border: 1px solid {border_color};
         box-shadow: 0 4px 30px {shadow_color};
         margin-bottom: 15px;
+        overflow: hidden;
         ">
-        <div style="font-size: 18px; margin-bottom: 10px;">
+        <div style="
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
+            z-index: -1;
+            "></div>
+        <div style="font-size: 18px; margin-bottom: 10px; position: relative;">
             {title}
         </div>
-        <div style="font-size: 24px; font-weight: bold; margin-bottom: 10px;">
+        <div style="font-size: 24px; font-weight: bold; margin-bottom: 10px; position: relative;">
             {value}
         </div>
         <div style="
@@ -429,11 +441,12 @@ def render_insight_card(title: str, value: str, trend: str, trend_icon: str, hel
             justify-content: center;
             font-size: 16px;
             color: {trend_color};
+            position: relative;
             ">
             <span style="margin-right: 5px;">{trend_icon}</span>
             <span>{trend}</span>
         </div>
-        {f'<div style="font-size: 14px; margin-top: 10px; opacity: 0.8;">{help_text}</div>' if help_text else ''}
+        {f'<div style="font-size: 14px; margin-top: 10px; opacity: 0.8; position: relative;">{help_text}</div>' if help_text else ''}
     </div>
     """
     return html
@@ -441,8 +454,7 @@ def render_insight_card(title: str, value: str, trend: str, trend_icon: str, hel
 def render_revenue_insights(insights: Dict[str, Any]) -> None:
     """Renderiza insights de receita."""
     revenue = insights['revenue']
-    
-    st.markdown("### 💰 Desempenho Financeiro")
+
     col1, col2 = st.columns(2)
     
     with col1:
@@ -472,8 +484,6 @@ def render_revenue_insights(insights: Dict[str, Any]) -> None:
 def render_satisfaction_insights(insights: Dict[str, Any]) -> None:
     """Renderiza insights de satisfação."""
     satisfaction = insights['satisfaction']
-    
-    st.markdown("### 😊 Satisfação do Cliente")
     col1, col2, col3 = st.columns(3)
     
     with col1:
@@ -547,8 +557,6 @@ def render_delivery_insights(insights: Dict[str, Any]) -> None:
     """Renderiza insights de entrega."""
     delivery = insights['delivery']
     stats = delivery['delivery_stats']
-    
-    st.markdown("### 📦 Entregas")
     col1, col2, col3 = st.columns(3)
     
     with col1:
@@ -592,7 +600,6 @@ def render_improvement_opportunities(insights: Dict[str, Any]) -> None:
     opportunities = insights['improvement_opportunities']
     
     if opportunities:
-        st.markdown("### 🎯 Oportunidades de Melhoria")
         cols = st.columns(len(opportunities))
         
         for idx, opportunity in enumerate(opportunities):
@@ -650,7 +657,7 @@ def render_customer_behavior_insights(df: pd.DataFrame) -> None:
     insights = calculate_customer_behavior_insights(df)
     
     # Seção de Satisfação
-    st.markdown("### 📊 Análise de Satisfação")
+    st.markdown("<h3 style='text-align: center;'>📊 Análise de Satisfação</h2>", unsafe_allow_html=True)
     
     # Métricas de Satisfação
     satisfaction_data = insights['satisfaction_evolution']
@@ -662,10 +669,9 @@ def render_customer_behavior_insights(df: pd.DataFrame) -> None:
         "📝 Total Avaliações": f"{int(latest_satisfaction['count']):,}"
     }
     render_kpi_block(kpi_values=satisfaction_kpis, cols_per_row=3)
-    
+    st.markdown("---")
     # Distribuição das Avaliações
-    st.markdown("### ⭐ Distribuição das Avaliações")
-    
+
     distribution = insights['review_distribution']
     dist_cols = st.columns(5)
     
@@ -681,10 +687,10 @@ def render_customer_behavior_insights(df: pd.DataFrame) -> None:
                 ),
                 unsafe_allow_html=True
             )
-    
+    st.markdown("---")
     # Correlações e Insights
-    st.markdown("### 🔍 Correlações e Insights")
-    
+    st.markdown("<h3 style='text-align: center;'>🔍 Correlações e Insights</h2>", unsafe_allow_html=True)
+        
     correlations = insights['correlations']
     corr_cols = st.columns(2)
     

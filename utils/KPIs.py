@@ -314,7 +314,7 @@ def render_kpi_block_title(title, cols_per_row=3):
 
 def render_plotly_glass_card(title, fig, height=620):
     """
-    Renders a Plotly figure inside a glass-effect container.
+    Renders a Plotly figure with a glass effect directly in the figure configuration.
     
     Args:
         title (str): The title of the chart
@@ -324,21 +324,43 @@ def render_plotly_glass_card(title, fig, height=620):
     # Get theme to adjust colors
     is_dark_theme = st.get_option("theme.base") == "dark"
     text_color = "rgba(255,255,255,0.9)" if is_dark_theme else "rgba(0,0,0,0.9)"
+    grid_color = "rgba(255, 255, 255, 0.30)"  # Grid branco com 30% de opacidade
     border_color = "rgba(255, 255, 255, 0.3)"  # Semi-transparent white border
     bg_color = "rgba(255, 255, 255, 0.1)"  # Semi-transparent white background
-    shadow_color = "rgba(0, 0, 0, 0.1)"  # Light shadow
-    grid_color = "rgba(255, 255, 255, 0.30)"  # Grid branco com 30% de opacidade
     
     # Update layout for better spacing and label positioning
     fig.update_layout(
         margin=dict(l=80, r=20, t=40, b=80),
-        paper_bgcolor=bg_color,
-        plot_bgcolor=bg_color,
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
         font=dict(
             family="Inter, sans-serif",
             size=14,
-            color=text_color
-        )
+        ),
+        title=dict(
+            text=title,
+            font=dict(size=22),
+            x=0.5,
+            xanchor='center'
+        ),
+        # Add glass effect
+        shapes=[
+            dict(
+                type="rect",
+                xref="paper",
+                yref="paper",
+                x0=0,
+                y0=0,
+                x1=1,
+                y1=1,
+                line=dict(
+                    color=border_color,
+                    width=1
+                ),
+                fillcolor=bg_color,
+                layer="below"
+            )
+        ]
     )
     
     # Update Y-axis properties
@@ -346,56 +368,26 @@ def render_plotly_glass_card(title, fig, height=620):
         automargin=True,
         ticks="outside",
         ticklabelposition="outside left",
-        gridcolor=grid_color,
-        tickcolor=text_color,
-        tickfont=dict(color=text_color)
+        zerolinewidth=1
     )
     
     # Update X-axis properties
     fig.update_xaxes(
         ticklabelposition="outside bottom",
         ticks="outside",
-        gridcolor=grid_color,
-        tickcolor=text_color,
-        tickfont=dict(color=text_color)
+        zerolinewidth=1
     )
     
-    # Convert Plotly figure to HTML
-    html_graph = fig.to_html(full_html=False, include_plotlyjs='cdn')
+    # Add hover effect
+    fig.update_traces(
+        hoverlabel=dict(
+            bgcolor=bg_color,
+            bordercolor=border_color,
+        )
+    )
     
-    # Create glass container with the graph using the same style as kpi_card
-    html_content = f"""
-    <style>
-        .plotly-glass-card {{
-            backdrop-filter: blur(10px);
-            background: {bg_color};
-            padding: 20px;
-            border-radius: 15px;
-            border: 1px solid {border_color};
-            box-shadow: 0 4px 30px {shadow_color};
-            font-family: 'Inter', sans-serif;
-        }}
-        .plotly-glass-card-title {{
-            text-align: center;
-            margin-bottom: 20px;
-            font-size: 22px;
-            font-weight: bold;
-            color: {text_color};
-        }}
-        .plotly-glass-card-content {{
-            padding: 10px 20px;
-        }}
-    </style>
-    <div class="plotly-glass-card">
-        <div class="plotly-glass-card-title">{title}</div>
-        <div class="plotly-glass-card-content">
-            {html_graph}
-        </div>
-    </div>
-    """
-    
-    # Render the HTML content with increased height
-    components.html(html_content, height=height, scrolling=False)
+    # Render the Plotly figure
+    st.plotly_chart(fig, use_container_width=True, height=height)
 
 if __name__ == "__main__":
     df = load_data()

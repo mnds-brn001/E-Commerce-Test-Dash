@@ -16,6 +16,7 @@ from imblearn.under_sampling import RandomUnderSampler
 import joblib
 import requests
 from io import BytesIO
+from utils.descriptions import render_glass_card
 
 def read_results_file(file_path):
     """
@@ -180,14 +181,12 @@ def app():
         col1, col2 = st.columns([2, 1])
         
         with col1:
-            st.markdown("""
-            <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-                <h3 style="margin-top: 0;">O que é Churn?</h3>
-                <p>O churn (cancelamento) é um indicador crítico para negócios, pois indica a taxa com que os clientes 
-                param de comprar ou usar os serviços. Monitorar e prever o churn permite que empresas tomem medidas 
-                proativas para reter clientes valiosos.</p>
-            </div>
-            """, unsafe_allow_html=True)
+            st.subheader("O que é Churn?")
+            render_glass_card(
+                "O churn (cancelamento) é um indicador crítico para negócios, pois indica a taxa com que os clientes \
+                param de comprar ou usar os serviços. Monitorar e prever o churn permite que empresas tomem medidas \
+                proativas para reter clientes valiosos."
+            )
             
             # Exibir distribuição de compras ao longo do tempo
             st.subheader("📅 Distribuição de Compras ao Longo do Tempo")
@@ -219,13 +218,11 @@ def app():
             total_customers = df['customer_unique_id'].nunique()
             total_orders = df['order_id'].nunique()
             
-            st.markdown(f"""
-            <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-                <p><strong>Período dos Dados:</strong> {min_date.strftime('%d/%m/%Y')} a {max_date.strftime('%d/%m/%Y')}</p>
-                <p><strong>Total de Clientes:</strong> {total_customers:,}</p>
-                <p><strong>Total de Pedidos:</strong> {total_orders:,}</p>
-            </div>
-            """, unsafe_allow_html=True)
+            render_glass_card(
+                f"<strong>Período dos Dados:</strong> {min_date.strftime('%d/%m/%Y')} a {max_date.strftime('%d/%m/%Y')}<br>\
+                <strong>Total de Clientes:</strong> {total_customers:,}<br>\
+                <strong>Total de Pedidos:</strong> {total_orders:,}"
+            )
             
             # Verificar se o modelo já foi treinado
             model_exists = os.path.exists(os.path.join('models', 'churn_model.pkl'))
@@ -254,17 +251,14 @@ def app():
             # Exemplo ilustrativo de como funciona a definição de churn
             st.subheader("ℹ️ Como Funciona a Definição de Churn")
             
-            st.markdown("""
-            <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-                <p>Para esta análise, consideramos:</p>
-                <ul>
-                    <li><strong>Data de corte padrão:</strong> 17 de abril de 2018 (6 meses antes do final dos dados)</li>
-                    <li><strong>Clientes com churn (1):</strong> Aqueles que não compraram após a data de corte</li>
-                    <li><strong>Clientes sem churn (0):</strong> Aqueles que compraram após a data de corte</li>
-                </ul>
-            </div>
-            """, unsafe_allow_html=True)
-        
+            render_glass_card(
+                "Para esta análise, consideramos:<ul>\
+                <li><strong>Data de corte padrão:</strong> 17 de abril de 2018 (6 meses antes do final dos dados)</li>\
+                <li><strong>Clientes com churn (1):</strong> Aqueles que não compraram após a data de corte</li>\
+                <li><strong>Clientes sem churn (0):</strong> Aqueles que compraram após a data de corte</li>\
+                </ul>"
+            )
+
         # Exemplo ilustrativo de como funciona a definição de churn
         st.subheader("📝 Exemplo de Definição de Churn")
         
@@ -287,13 +281,11 @@ def app():
         
         st.table(example_data)
         
-        st.markdown("""
-        <div style="background-color: #f0f2f6; padding: 20px; border-radius: 10px; margin-top: 20px;">
-            <p><strong>Nota:</strong> A data de corte padrão é 17 de abril de 2018. Clientes que não fizeram compras
-            após essa data são considerados como tendo abandonado (churn = 1).</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
+        render_glass_card(
+            "A data de corte padrão é 17 de abril de 2018. Clientes que não fizeram compras\
+            após essa data são considerados como tendo abandonado (churn = 1)."
+        )
+
     # TAB 2: CONFIGURAR ANÁLISE
     with tab2:
         st.header("⚙️ Configurar Análise de Churn")
@@ -380,66 +372,20 @@ def app():
         
         with col2:
             st.subheader("ℹ️ Sobre os Parâmetros")
-            
-            # CSS personalizado para os parâmetros
-            st.markdown("""
-                <style>
-                    .param-box {
-                        background-color: #f0f2f6;
-                        padding: 20px;
-                        border-radius: 10px;
-                        margin-bottom: 20px;
-                    }
-                    .param-title {
-                        color: #1f77b4;
-                        font-size: 1.1em;
-                        font-weight: bold;
-                        margin-bottom: 5px;
-                    }
-                    .param-desc {
-                        color: #2c3e50;
-                        margin-bottom: 15px;
-                    }
-                </style>
-            """, unsafe_allow_html=True)
-
-            # Parâmetros em containers separados
-            params = [
-                {
-                    "icon": "📅",
-                    "title": "Data de Corte",
-                    "desc": "Define o ponto no tempo a partir do qual consideramos que um cliente abandonou o serviço."
-                },
-                {
-                    "icon": "⚖️",
-                    "title": "Rebalanceamento",
-                    "desc": "Métodos para lidar com o desequilíbrio entre classes (churn vs. não-churn)."
-                },
-                {
-                    "icon": "🤖",
-                    "title": "Tipo de Modelo",
-                    "desc": "Algoritmos de machine learning para prever o churn."
-                },
-                {
-                    "icon": "🔄",
-                    "title": "Validação Cruzada",
-                    "desc": "Método para avaliar a performance do modelo em diferentes subconjuntos dos dados."
-                }
-            ]
-
-            # Gerar todo o HTML em uma única string, sem quebras de linha extras
-            params_html = [
-                '<div class="param-box">',
-                *[f'<div class="param-title">{p["icon"]} {p["title"]}</div><div class="param-desc">{p["desc"]}</div>' for p in params],
-                '</div>'
-            ]
-
-            # Renderizar todo o HTML de uma vez, juntando as partes
-            st.markdown(''.join(params_html), unsafe_allow_html=True)
-            
+            st.markdown('---')
+            # Render glass card for parameters
+            render_glass_card(
+                "<ul>\
+                <li><strong>📅Data de Corte:</strong> Define o ponto no tempo a partir do qual consideramos que um cliente abandonou o serviço.</li>\
+                <li><strong>⚖️Rebalanceamento:</strong> Métodos para lidar com o desequilíbrio entre classes (churn vs. não-churn).</li>\
+                <li><strong>🤖Tipo de Modelo:</strong> Algoritmos de machine learning para prever o churn.</li>\
+                <li><strong>🔄Validação Cruzada:</strong> Método para avaliar a performance do modelo em diferentes subconjuntos dos dados.</li>\
+                </ul>"
+            )
+        
         with col3:
             st.subheader("📊 Distribuição Atual")
-            
+            st.markdown('---')
             # Calcular distribuição atual de churn
             cutoff_date_obj = datetime.combine(cutoff_date, datetime.min.time())
             churn_df = define_churn(df, cutoff_date_obj)
@@ -506,7 +452,7 @@ def app():
                 st.success("✅ Análise concluída! Navegue para a aba 'Resultados do Modelo' para ver os resultados.")
                 st.balloons()
 
-
+    
     # TAB 3: RESULTADOS DO MODELO
     with tab3:
         st.header("📈 Resultados do Modelo de Churn")

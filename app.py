@@ -9,6 +9,7 @@ from utils.insights import (
     render_delivery_insights, render_improvement_opportunities,
     analyze_category_performance, render_category_recommendations
 )
+from utils.descriptions import render_page_title
 import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
@@ -102,25 +103,17 @@ def format_percentage(value):
 
 # Exibir a página selecionada
 if pagina == "Visão Geral":
-    st.title("Visão Geral")
     kpis = calculate_kpis(filtered_df, marketing_spend, date_range)
     insights = generate_overview_insights(filtered_df)
+    render_page_title("Resumo Executivo", "📊")
     
-    # ===== SEÇÃO 1: RESUMO EXECUTIVO =====
-    st.markdown("## 📊 Resumo Executivo")
-    
-    # KPIs Principais
-    render_kpi_block_title("Principais Indicadores")
     kpi_values = {
         "💰 Receita Total": f"R$ {format_value(kpis['total_revenue'])}",
         "📦 Total de Pedidos": format_value(kpis['total_orders'], is_integer=True),
         "👥 Total de Clientes": format_value(kpis['total_customers'], is_integer=True)
     }
     render_kpi_block(kpi_values=kpi_values, cols_per_row=3)
-    
-    # ===== SEÇÃO 2: DESEMPENHO FINANCEIRO =====
-    st.markdown("## 💰 Desempenho Financeiro")
-    
+    st.markdown("---")
     # Insights de Receita
     render_revenue_insights(insights)
     
@@ -136,8 +129,8 @@ if pagina == "Visão Geral":
     fig_revenue.update_layout(showlegend=False)
     render_plotly_glass_card("Evolução da Receita Mensal", fig_revenue)
     
-    # ===== SEÇÃO 3: EXPERIÊNCIA DO CLIENTE =====
-    st.markdown("## 😊 Experiência do Cliente")
+    # Experiência do Cliente
+    render_page_title("Experiência do Cliente", "😊")
     
     # Métricas de Experiência
     exp_kpis = {
@@ -146,7 +139,7 @@ if pagina == "Visão Geral":
         "❌ Taxa de Cancelamento": format_percentage(kpis['cancellation_rate'])
     }
     render_kpi_block(kpi_values=exp_kpis, cols_per_row=3)
-    
+    st.markdown("---")
     # Insights de Satisfação e Entrega
     col1, col2 = st.columns(2)
     with col1:
@@ -154,6 +147,7 @@ if pagina == "Visão Geral":
     with col2:
         render_delivery_insights(insights)
     
+    st.markdown("---")
     # Gráficos de Satisfação e Cancelamento
     col1, col2 = st.columns(2)
     
@@ -199,42 +193,17 @@ if pagina == "Visão Geral":
         "💰 Ticket Médio": f"R$ {format_value(kpis['average_ticket'])}"
     }
     render_kpi_block(kpi_values=attention_kpis, cols_per_row=3)
-    
+    st.markdown("---")
     # Oportunidades de Melhoria
     render_improvement_opportunities(insights)
     
-    # ===== SEÇÃO 5: CONCLUSÕES =====
-    st.markdown("## 📝 Conclusões")
+
     
-    # Criar conclusões baseadas nos insights
-    revenue = insights['revenue']
-    satisfaction = insights['satisfaction']
-    cancellation = insights['cancellation']
-    delivery = insights['delivery']
     
-    st.markdown(f"""
-    #### Principais Conclusões:
     
-    1. **Desempenho Financeiro** {revenue['trend_icon']}
-       - A receita está em {revenue['trend']} ({revenue['growth_rate']:.1f}%)
-       - O melhor mês registrou R$ {revenue['best_month_revenue']:,.2f}
-    
-    2. **Satisfação do Cliente** {satisfaction['trend_icon']}
-       - Satisfação média de {satisfaction['avg_satisfaction']:.1f}/5.0
-       - {(satisfaction['top_score_percentage']*100):.1f}% dos clientes deram nota máxima
-    
-    3. **Entregas e Cancelamentos**
-       - Tempo médio de entrega: {delivery['avg_delivery_time']:.1f} dias {delivery['trend_icon']}
-       - Taxa de cancelamento: {(cancellation['cancellation_rate']*100):.1f}% {cancellation['trend_icon']}
-    
-    4. **Próximos Passos**
-       - Focar na redução do tempo de entrega
-       - Trabalhar na diminuição da taxa de cancelamento
-       - Implementar programa de fidelização para aumentar o ticket médio
-    """)
 
 elif pagina == "Análise Estratégica":
-    st.title("Análise Estratégica")
+    render_page_title("Análise Estratégica", "📈")
     kpis = calculate_kpis(filtered_df, marketing_spend, date_range)
     
     # ===== SEÇÃO 1: VISÃO GERAL E KPIs PRINCIPAIS =====
@@ -246,7 +215,7 @@ elif pagina == "Análise Estratégica":
     }
     
     # Renderizar bloco de KPIs principais com efeito glass
-    render_kpi_block("📊 Métricas Principais", main_kpis, cols_per_row=3)
+    render_kpi_block(main_kpis, cols_per_row=3)
     
     # ===== SEÇÃO 2: PREVISÃO DE RECEITA =====
    
@@ -328,7 +297,7 @@ elif pagina == "Análise Estratégica":
     }
     
     # Renderizar bloco de KPIs de previsão com efeito glass
-    render_kpi_block("📊 Métricas de Previsão", forecast_kpis, cols_per_row=3)
+    render_kpi_block(forecast_kpis, cols_per_row=3)
     
     # Criar gráfico de previsão
     fig_forecast = go.Figure()
@@ -845,10 +814,10 @@ elif pagina == "Análise Estratégica":
             ">
                 <h3 style="margin: 0; color: {text_color};">{rec['category']}</h3>
                 <h1 style="margin: 10px 0; color: {text_color};">{rec['action']}</h1>
-                <p style="opacity: 0.8; margin: 0;">Variação prevista: {format_value(rec['variation'])}%</p>
-                <p style="opacity: 0.8; margin: 5px 0;">Giro de estoque: {format_value(rec['inventory_turnover'])} un/dia</p>
-                <p style="opacity: 0.8; margin: 5px 0;">Estoque ideal: {format_value(rec['ideal_stock'], is_integer=True)} un</p>
-                <p style="font-size: 0.9em; margin-top: 10px; font-style: italic;">{rec['reason']}</p>
+                <p style="opacity: 0.8; margin: 0;color: {text_color};">Variação prevista: {format_value(rec['variation'])}%</p>
+                <p style="opacity: 0.8; margin: 5px 0;color: {text_color};">Giro de estoque: {format_value(rec['inventory_turnover'])} un/dia</p>
+                <p style="opacity: 0.8; margin: 5px 0;color: {text_color};">Estoque ideal: {format_value(rec['ideal_stock'], is_integer=True)} un</p>
+                <p style="font-size: 0.9em; margin-top: 10px; font-style: italic;color: {text_color};">{rec['reason']}</p>
             </div>
             """, unsafe_allow_html=True)
     
@@ -875,7 +844,7 @@ elif pagina == "Análise Estratégica":
         """)
 
 elif pagina == "Aquisição e Retenção":
-    st.title("Aquisição e Retenção")
+    render_page_title("Aquisição e Retenção", "🔄")
     kpis = calculate_kpis(filtered_df, marketing_spend, date_range)
     acquisition_kpis = calculate_acquisition_retention_kpis(filtered_df, marketing_spend, date_range)
     
@@ -889,7 +858,7 @@ elif pagina == "Aquisição e Retenção":
     }
     
     # Renderizar título e bloco de KPIs de Clientes com efeito glass
-    render_kpi_block_title("👥 Métricas de Clientes")
+    st.markdown("---")
     render_kpi_block(kpi_values=customer_kpis, cols_per_row=3)
     
     # Preparar dicionário de KPIs Financeiros
@@ -900,7 +869,7 @@ elif pagina == "Aquisição e Retenção":
     }
     
     # Renderizar título e bloco de KPIs Financeiros com efeito glass
-    render_kpi_block_title("💰 Métricas Financeiras")
+    st.markdown("---")
     render_kpi_block(kpi_values=financial_kpis, cols_per_row=3)
     
     st.markdown("---")
@@ -1385,13 +1354,13 @@ elif pagina == "Aquisição e Retenção":
         st.markdown(conversion_section, unsafe_allow_html=True)
 
 elif pagina == "Comportamento do Cliente":
-    st.title("Comportamento do Cliente")
+    render_page_title("Comportamento do Cliente", "👥")
     kpis = calculate_kpis(filtered_df, marketing_spend, date_range)
     acquisition_kpis = calculate_acquisition_retention_kpis(filtered_df, marketing_spend, date_range)
     
     # ===== SEÇÃO 1: VISÃO GERAL =====
     # Preparar dicionário de KPIs de Cliente
-    render_kpi_block_title("👥 Métricas de Cliente")
+    st.markdown("---")
     customer_kpis = {
         "🎯 Taxa de Abandono": format_percentage(kpis['abandonment_rate']),
         "😊 Satisfação do Cliente": format_value(kpis['csat']),
@@ -1400,7 +1369,7 @@ elif pagina == "Comportamento do Cliente":
     render_kpi_block(kpi_values=customer_kpis, cols_per_row=3)
     
     # Preparar dicionário de KPIs de Tempo
-    render_kpi_block_title("⏱️ Métricas de Tempo")
+    st.markdown("<h2 style='text-align: center;'>⏱️ Métricas de Tempo</h2>", unsafe_allow_html=True)
     time_kpis = {
         "📦 Tempo Médio de Entrega": f"{int(kpis['avg_delivery_time'])} dias",
         "⏳ Tempo até 2ª Compra": f"{int(acquisition_kpis['avg_time_to_second'])} dias",
@@ -1414,7 +1383,6 @@ elif pagina == "Comportamento do Cliente":
     render_customer_behavior_insights(filtered_df)
     
     # ===== SEÇÃO 3: ANÁLISE DE TEXTOS DAS AVALIAÇÕES =====
-    st.markdown("---")
     st.header("📝 Análise de Textos das Avaliações")
     
     # Realizar análise NLP
@@ -1438,7 +1406,8 @@ elif pagina == "Comportamento do Cliente":
         st.markdown("**Padrões encontrados:**")
         for category, count in nlp_results['sentiment_patterns']['positive'].items():
             st.markdown(f"- {category.title()}: {count} menções")
-    
+
+    st.markdown("---")
     with col2:
         st.subheader("⚖️ Avaliações Neutras")
         st.pyplot(nlp_results['neutral_wordcloud'])
@@ -1509,6 +1478,7 @@ elif pagina == "Comportamento do Cliente":
     render_kpi_block(kpi_values=proportion_kpis, cols_per_row=3)
 
 elif pagina == "Produtos e Categorias":
+    render_page_title("Produtos e Categorias", "📦")
     st.title("Produtos e Categorias")
     kpis = calculate_kpis(filtered_df, marketing_spend, date_range)
     
@@ -1763,5 +1733,6 @@ elif pagina == "Produtos e Categorias":
     """)
 
 elif pagina == "Análise de Churn":
+    render_page_title("Análise de Churn", "📉")
     import paginas.analise_churn
     paginas.analise_churn.app()
